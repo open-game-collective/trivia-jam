@@ -1,0 +1,35 @@
+flowchart TD
+    Start([Start]) --> CreateGame[Host Creates Game]
+    CreateGame --> Lobby{Lobby Phase}
+    
+    subgraph JoinPhase[Player Join Phase]
+        Lobby --> |Players Join|PlayerJoin[Players Enter Code]
+        PlayerJoin --> UpdateLobby[Update Player List]
+        UpdateLobby --> |More Players|PlayerJoin
+        UpdateLobby --> |Host Starts|StartGame[Game Begins]
+    end
+    
+    subgraph GameLoop[Game Round Loop]
+        StartGame --> QuestionPhase[Host Types Question]
+        QuestionPhase --> ShowQuestion[Question Displayed]
+        ShowQuestion --> BuzzerPhase[Players Can Buzz]
+        
+        BuzzerPhase --> |Player Buzzes|BuzzerQueue[Show Answer Order]
+        BuzzerQueue --> HostValidates{Host Validates}
+        
+        HostValidates --> |Correct|UpdateScores[Update Scores]
+        HostValidates --> |Wrong|NextPlayer[Next Player in Queue]
+        NextPlayer --> |Players Left|BuzzerQueue
+        NextPlayer --> |No Players Left|QuestionPhase
+        
+        UpdateScores --> |Continue|QuestionPhase
+        UpdateScores --> |End Game|EndGame[Game Over]
+    end
+    
+    EndGame --> Results([Show Final Scores])
+
+    style Start fill:#4CAF50,color:white
+    style Results fill:#FF5722,color:white
+    style BuzzerPhase fill:#2196F3,color:white
+    style HostValidates fill:#FFC107
+    style QuestionPhase fill:#9C27B0,color:white

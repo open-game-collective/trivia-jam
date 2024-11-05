@@ -1,0 +1,26 @@
+erDiagram
+    GAME ||--o{ PLAYER : has
+    GAME ||--o{ QUESTION : contains
+    GAME {
+        string gameId
+        string status
+        datetime createdAt
+        string hostId
+    }
+    PLAYER {
+        string playerId
+        string name
+        int score
+        boolean isHost
+    }
+    QUESTION {
+        string questionId
+        string text
+        string answer
+        array responses
+    }
+    BUZZER_QUEUE ||--o{ PLAYER : contains
+    BUZZER_QUEUE {
+        array playerOrder
+        datetime lastBuzz
+    } 

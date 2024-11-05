@@ -1,0 +1,27 @@
+flowchart LR
+    subgraph Host["Host Flow"]
+        direction TB
+        H1[Landing] --> H2[Create Game]
+        H2 --> H3[Host Controls]
+        H3 --> H4[Question Input]
+        H4 --> H5[Answer Validation]
+    end
+
+    subgraph Player["Player Flow"]
+        direction TB
+        P1[Join Game] --> P2[Wait Lobby]
+        P2 --> P3[Game View]
+        P3 --> P4[Buzzer Active]
+    end
+
+    subgraph Board["Game Board Flow"]
+        direction TB
+        B1[Join Code] --> B2[Player List]
+        B2 --> B3[Question Display]
+        B3 --> B4[Buzzer Queue]
+        B4 --> B5[Scores]
+    end
+
+    style Host fill:#e1bee7
+    style Player fill:#bbdefb
+    style Board fill:#c8e6c9 

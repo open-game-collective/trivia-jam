@@ -1,0 +1,10 @@
+stateDiagram-v2
+    [*] --> Lobby
+    Lobby --> GameStarted: Host Starts
+    GameStarted --> QuestionPrep: Init Question
+    QuestionPrep --> QuestionActive: Host Shows
+    QuestionActive --> AnswerValidation: Player Buzzes
+    AnswerValidation --> QuestionPrep: Correct Answer
+    AnswerValidation --> QuestionActive: Wrong Answer
+    QuestionPrep --> GameOver: Host Ends
+    GameOver --> [*] 
