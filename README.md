@@ -89,6 +89,16 @@ The game board will have different views based on game state:
 - Device detection for appropriate interface rendering
 - WebSocket connections for real-time updates
 
+## Development Resources
+
+### Storybook
+The component library and UI documentation can be viewed at:
+[https://trivia-jam-storybook.pages.dev/](https://trivia-jam-storybook.pages.dev/)
+
+### Live Application
+Play Trivia Jam at:
+[https://www.triviajam.tv](https://www.triviajam.tv)
+
 ## State Management
 
 The game state will be managed centrally on the server with the following key components:
