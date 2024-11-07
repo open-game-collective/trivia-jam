@@ -16,12 +16,13 @@ A real-time trivia game where players join from their phones and play on shared 
 
 ### Main Routes
 
-- `WEB_HOST/` 
+- `WEB_HOST/`
+
   - Landing page
   - Contains "Start New Game" button
   - Redirects host to a new game session
 
-- `WEB_HOST/jams/[gameId]`
+- `WEB_HOST/games/[gameId]`
   - Main game route (uses nanoid for gameId)
   - Detects device type:
     - Mobile: Player/Host interface
@@ -32,15 +33,18 @@ A real-time trivia game where players join from their phones and play on shared 
 The game board will have different views based on game state:
 
 1. **Lobby View**
+
    - Shows joining instructions
    - Displays currently joined players
    - Waiting for host to start
 
 2. **Question Preparation View**
+
    - "Waiting for next question..."
    - Host is typing question
 
 3. **Active Question View**
+
    - Displays current question
    - Shows buzzer order/queue
    - Displays scores
@@ -53,7 +57,9 @@ The game board will have different views based on game state:
 ### Player/Host Views (Mobile)
 
 #### Host Views
+
 1. **Setup View**
+
    - Game settings
    - Start game button
    - Player management
@@ -64,7 +70,9 @@ The game board will have different views based on game state:
    - Answer validation interface
 
 #### Player Views
+
 1. **Join View**
+
    - Name entry
    - Waiting for game to start
 
@@ -95,6 +103,7 @@ The game state will be managed centrally on the server with the following key co
 ## Real-time Updates
 
 All game state changes will be synchronized across:
+
 - Game board display
 - Host interface
 - Player interfaces
