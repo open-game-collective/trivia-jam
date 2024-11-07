@@ -9,7 +9,7 @@
     "typecheck": "tsc",
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
-    "deploy-storybook": "npm run build-storybook && wrangler deploy pages deploy storybook-static",
+    "deploy-storybook": "npm run build-storybook && wrangler pages deploy storybook-static",
     "preview-storybook": "npx http-server storybook-static"
   },
   "keywords": [
