@@ -35,6 +35,15 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("BUZZ_IN"),
   }),
+
+  // Update Settings Event
+  z.object({
+    type: z.literal("UPDATE_SETTINGS"),
+    settings: z.object({
+      maxPlayers: z.number().min(2).max(20),
+      questionCount: z.number().min(1).max(50),
+    }),
+  }),
 ]);
 
 export const GameServiceEventSchema = z.discriminatedUnion("type", [

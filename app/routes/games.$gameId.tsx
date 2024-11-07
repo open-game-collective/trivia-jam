@@ -1,11 +1,13 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/cloudflare";
 import { useLoaderData, useParams } from "@remix-run/react";
 import { createAccessToken, createActorFetch } from "actor-kit/server";
-import { GameProvider } from "~/contexts/game.context";
+import { HostView } from "~/components/host-view";
+import { PlayerView } from "~/components/player-view";
+import { SpectatorView } from "~/components/spectator-view";
 import type { gameMachine } from "~/game.machine";
-import { GameBoard } from "~/screens/GameBoard";
-import { PlayerView } from "~/screens/PlayerView";
-import { getDeviceType } from "~/utils/deviceType";
+import { SessionContext } from "~/session.context";
+import { GameProvider } from "../game.context";
+import { getDeviceType } from "../utils/deviceType";
 
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const fetchGame = createActorFetch<typeof gameMachine>({
@@ -37,9 +39,11 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
 }
 
 export default function GameRoute() {
-  const { gameId } = useParams();
+  const gameId = useParams().gameId!;
   const { host, accessToken, payload, deviceType } =
     useLoaderData<typeof loader>();
+  const hostId = payload.snapshot.public.hostId;
+  const userId = SessionContext.useSelector((state) => state.public.userId);
 
   return (
     <GameProvider
@@ -49,10 +53,12 @@ export default function GameRoute() {
       checksum={payload.checksum}
       initialSnapshot={payload.snapshot}
     >
-      {deviceType === "desktop" ? (
-        <GameBoard gameId={gameId!} />
+      {deviceType !== "mobile" ? (
+        <SpectatorView />
+      ) : hostId === userId ? (
+        <HostView />
       ) : (
-        <PlayerView gameId={gameId!} />
+        <PlayerView />
       )}
     </GameProvider>
   );

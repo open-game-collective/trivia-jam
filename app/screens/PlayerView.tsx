@@ -1,7 +1,5 @@
-// import { JoinGame } from "~/components/player/join/JoinGame";
-// import { PlayerResults } from "~/components/player/results/PlayerResults";
-import { GameContext } from "~/contexts/game.context";
 import { SessionContext } from "~/session.context";
+import { GameContext } from "../game.context";
 
 export function PlayerView({ gameId }: { gameId: string }) {
   const userId = SessionContext.useSelector((state) => state.public.userId);

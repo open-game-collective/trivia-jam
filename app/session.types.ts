@@ -5,6 +5,7 @@ import type {
   WithActorKitInput,
 } from "actor-kit";
 import { z } from "zod";
+import { Env } from "./env";
 import {
   SessionClientEventSchema,
   SessionInputPropsSchema,
@@ -35,4 +36,4 @@ export type SessionEvent = (
   | WithActorKitEvent<SessionServiceEvent, "service">
   | ActorKitSystemEvent
 ) &
-  BaseActorKitEvent;
+  BaseActorKitEvent<Env>;

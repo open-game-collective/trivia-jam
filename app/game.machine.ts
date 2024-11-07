@@ -2,8 +2,6 @@ import { ActorKitStateMachine } from "actor-kit";
 import { and, assign, setup } from "xstate";
 import type { GameEvent, GameInput, GameServerContext } from "./game.types";
 
-type GameStatus = "lobby" | "active" | "finished";
-
 export const gameMachine = setup({
   types: {} as {
     context: GameServerContext;
@@ -107,6 +105,10 @@ export const gameMachine = setup({
       buzzerQueue: [],
       gameStatus: "lobby" as const,
       winner: null,
+      settings: {
+        maxPlayers: 10,
+        questionCount: 10,
+      },
     },
     private: {},
   }),
@@ -178,3 +180,5 @@ interface Player {
   name: string;
   score: number;
 }
+
+export type GameMachine = typeof gameMachine;

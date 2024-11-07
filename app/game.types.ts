@@ -5,6 +5,7 @@ import type {
   WithActorKitInput,
 } from "actor-kit";
 import { z } from "zod";
+import { Env } from "./env";
 import { GameClientEventSchema, GameInputPropsSchema } from "./game.schemas";
 
 export type GameInputProps = z.infer<typeof GameInputPropsSchema>;
@@ -32,8 +33,7 @@ export type GameEvent = (
   | WithActorKitEvent<GameClientEvent, "client">
   | WithActorKitEvent<GameServiceEvent, "service">
   | ActorKitSystemEvent
-) &
-  BaseActorKitEvent;
+) & BaseActorKitEvent<Env>;
 
 // Context Types
 export type GamePublicContext = {
@@ -52,6 +52,10 @@ export type GamePublicContext = {
   buzzerQueue: string[]; // Array of player IDs in buzz order
   gameStatus: "lobby" | "active" | "finished";
   winner: string | null;
+  settings: {
+    maxPlayers: number;
+    questionCount: number;
+  };
 };
 
 export type GamePrivateContext = {
