@@ -6,6 +6,7 @@ import { SessionContext } from "../app/session.context";
 import type { SessionMachine } from "../app/session.machine";
 import type { GamePublicContext } from "../app/game.types";
 import { StateFrom } from "xstate";
+import type { StoryContext } from '@storybook/react';
 
 // Type for game status
 type GameStatus = "lobby" | "active" | "finished";
@@ -61,13 +62,19 @@ type GameSnapshotOverrides = {
   value?: GameStateValue;
 };
 
+// Add return type for the decorator
+export type DecoratorClients = {
+  gameClient: ReturnType<typeof createActorKitMockClient<GameMachine>>;
+  sessionClient: ReturnType<typeof createActorKitMockClient<SessionMachine>>;
+};
+
 export function createGameAndSessionDecorator({
   gameSnapshot = defaultGameSnapshot,
   sessionSnapshot = defaultSessionSnapshot,
   userId = "test-user-id",
   gameOverrides = {} as GameSnapshotOverrides,
 } = {}) {
-  return function StoryDecorator(Story: React.ComponentType) {
+  return function StoryDecorator(Story: React.ComponentType, context: StoryContext) {
     // Create mock clients
     const gameMockClient = createActorKitMockClient<GameMachine>({
       initialSnapshot: {
@@ -91,6 +98,12 @@ export function createGameAndSessionDecorator({
         },
       },
     });
+
+    // Store clients in context for access in play function
+    context.parameters.clients = {
+      gameClient: gameMockClient,
+      sessionClient: sessionMockClient,
+    } satisfies DecoratorClients;
 
     return (
       <SessionContext.ProviderFromClient client={sessionMockClient}>

@@ -2,6 +2,7 @@ import { GameContext } from "~/game.context";
 import { motion, AnimatePresence } from "framer-motion";
 import { SessionContext } from "~/session.context";
 import { Trophy, Medal, Award, Star, Bell, Crown, Loader2 } from "lucide-react";
+import { useState } from "react";
 
 export const PlayerView = () => {
   const gameState = GameContext.useSelector((state) => state);
@@ -12,6 +13,15 @@ export const PlayerView = () => {
   const isPlayerInQueue = buzzerQueue.includes(userId);
   const isFirstInQueue = buzzerQueue[0] === userId;
   const playerScore = players.find(p => p.id === userId)?.score || 0;
+  const player = players.find(p => p.id === userId);
+
+  if (!player) {
+    return (
+      <NameInputDisplay 
+        onSubmit={(name) => send({ type: "JOIN_GAME", playerName: name })} 
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -279,6 +289,112 @@ const GameFinishedDisplay = ({
               </motion.div>
             ))}
         </div>
+      </motion.div>
+    </div>
+  );
+};
+
+const NameInputDisplay = ({ onSubmit }: { onSubmit: (name: string) => void }) => {
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // Client-side validation
+    if (!name.trim()) {
+      setError("Please enter your name");
+      return;
+    }
+    if (name.length > 20) {
+      setError("Name must be 20 characters or less");
+      return;
+    }
+    if (!/^[a-zA-Z0-9\s]+$/.test(name)) {
+      setError("Name can only contain letters, numbers and spaces");
+      return;
+    }
+
+    setIsSubmitting(true);
+    onSubmit(name.trim());
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+        </div>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative z-10 w-full max-w-md bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
+      >
+        <h1 className="text-3xl font-bold text-center mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+          Join Game
+        </h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="playerName" className="block text-sm font-medium text-indigo-300 mb-2">
+              Your Name
+            </label>
+            <input
+              id="playerName"
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError(null);
+              }}
+              className="w-full px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Enter your name"
+              maxLength={20}
+              disabled={isSubmitting}
+            />
+            {error && (
+              <motion.p
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2 text-sm text-red-400"
+              >
+                {error}
+              </motion.p>
+            )}
+          </div>
+          <motion.button
+            type="submit"
+            whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+            whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+            className={`w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center ${
+              isSubmitting ? "opacity-75 cursor-not-allowed" : ""
+            }`}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                Joining...
+              </>
+            ) : (
+              "Join Game"
+            )}
+          </motion.button>
+        </form>
       </motion.div>
     </div>
   );

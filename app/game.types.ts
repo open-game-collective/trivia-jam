@@ -63,6 +63,11 @@ export type GamePublicContext = {
     playerName: string;
     correct: boolean;
   } | null;
+  previousAnswers?: Array<{
+    playerId: string;
+    playerName: string;
+    correct: boolean;
+  }>;
 };
 
 export type GamePrivateContext = {};
