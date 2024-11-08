@@ -39,7 +39,7 @@ export type GameEvent = (
 // Context Types
 export type GamePublicContext = {
   id: string;
-  gameCode: string | undefined;
+  gameCode?: string;
   hostId: string;
   hostName: string;
   players: Array<{
@@ -58,6 +58,11 @@ export type GamePublicContext = {
     maxPlayers: number;
     questionCount: number;
   };
+  lastAnswerResult?: {
+    playerId: string;
+    playerName: string;
+    correct: boolean;
+  } | null;
 };
 
 export type GamePrivateContext = {};

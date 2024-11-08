@@ -63,6 +63,8 @@ export const gameMachine = setup({
     validateAnswer: assign({
       public: ({ context, event }) => {
         if (event.type !== "VALIDATE_ANSWER") return context.public;
+        const player = context.public.players.find(p => p.id === event.playerId);
+        
         return {
           ...context.public,
           players: context.public.players.map((player) =>
@@ -74,6 +76,11 @@ export const gameMachine = setup({
           currentQuestion: event.correct
             ? null
             : context.public.currentQuestion,
+          lastAnswerResult: player ? {
+            playerId: player.id,
+            playerName: player.name,
+            correct: event.correct
+          } : null,
         };
       },
     }),
@@ -98,7 +105,6 @@ export const gameMachine = setup({
   context: ({ input }: { input: GameInput }) => ({
     public: {
       id: input.id,
-      gameCode: undefined,
       hostId: input.caller.id,
       hostName: input.hostName,
       players: [],
