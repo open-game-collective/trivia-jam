@@ -22,5 +22,7 @@
       "~/*": ["./app/*"]
     },
     "noEmit": true
-  }
+  },
+  "include": ["app/**/*.ts", "app/**/*.tsx"],
+  "exclude": ["node_modules", "**/*.stories.tsx", "**/*.stories.ts"]
 }

@@ -18,15 +18,13 @@ export const sessionMachine = setup({
   id: "session",
   type: "parallel",
   context: ({ input }: { input: SessionInput }) => {
-    console.log("sessionMachine context", input);
     return {
       public: {
         userId: input.caller.id,
+        gameIdsByJoinCode: {}, // Map of join codes to game IDs
       },
       private: {
-        [input.caller.id]: {
-          gameIds: [],
-        },
+        [input.caller.id]: {},
       },
     };
   },

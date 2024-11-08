@@ -7,7 +7,7 @@ import {
 } from "./session.schemas";
 
 export const Session = createMachineServer({
-  machine: sessionMachine,
+  machine: sessionMachine as any, // todo type this
   schemas: {
     clientEvent: SessionClientEventSchema,
     serviceEvent: SessionServiceEventSchema,

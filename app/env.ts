@@ -16,6 +16,7 @@ export interface Env {
   REMIX: DurableObjectNamespace<Remix>;
   SESSION: DurableObjectNamespace<SessionServer>;
   GAME: DurableObjectNamespace<GameServer>;
+  KV_STORAGE: KVNamespace;
   SESSION_JWT_SECRET: string;
   ACTOR_KIT_SECRET: string;
   ACTOR_KIT_HOST: string;

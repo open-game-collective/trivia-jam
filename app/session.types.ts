@@ -20,17 +20,15 @@ export type SessionInput = WithActorKitInput<
 
 type SessionPublicContext = {
   userId: string;
+  gameIdsByJoinCode: Record<string, string>; // joinCode -> gameId mapping
 };
 
-type SessionPrivateContext = {
-  gameIds: string[];
-};
+type SessionPrivateContext = {};
 
 export type SessionServerContext = {
   public: SessionPublicContext;
   private: Record<string, SessionPrivateContext>;
 };
-
 export type SessionEvent = (
   | WithActorKitEvent<SessionClientEvent, "client">
   | WithActorKitEvent<SessionServiceEvent, "service">

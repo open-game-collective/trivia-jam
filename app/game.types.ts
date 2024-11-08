@@ -33,11 +33,13 @@ export type GameEvent = (
   | WithActorKitEvent<GameClientEvent, "client">
   | WithActorKitEvent<GameServiceEvent, "service">
   | ActorKitSystemEvent
-) & BaseActorKitEvent<Env>;
+) &
+  BaseActorKitEvent<Env>;
 
 // Context Types
 export type GamePublicContext = {
   id: string;
+  gameCode: string | undefined;
   hostId: string;
   hostName: string;
   players: Array<{
@@ -58,10 +60,7 @@ export type GamePublicContext = {
   };
 };
 
-export type GamePrivateContext = {
-  lastBuzzTime: number;
-  hasAnswered: boolean;
-};
+export type GamePrivateContext = {};
 
 export type GameServerContext = {
   public: GamePublicContext;

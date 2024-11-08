@@ -98,6 +98,7 @@ export const gameMachine = setup({
   context: ({ input }: { input: GameInput }) => ({
     public: {
       id: input.id,
+      gameCode: undefined,
       hostId: input.caller.id,
       hostName: input.hostName,
       players: [],

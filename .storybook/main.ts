@@ -1,9 +1,9 @@
 import type { StorybookConfig } from "@storybook/react-vite";
-import { mergeConfig } from 'vite';
-import path from 'path';
+import path from "path";
+import { mergeConfig } from "vite";
 
 const config: StorybookConfig = {
-  stories: ["../app/**/*.stories.@(js|jsx|ts|tsx)"],
+  stories: ["../stories/**/*.stories.@(js|jsx|ts|tsx)"],
   addons: [
     "@storybook/addon-links",
     "@storybook/addon-essentials",
@@ -24,7 +24,7 @@ const config: StorybookConfig = {
     return mergeConfig(config, {
       resolve: {
         alias: {
-          '~': path.resolve(__dirname, '../app'),
+          "~": path.resolve(__dirname, "../app"),
         },
       },
     });
