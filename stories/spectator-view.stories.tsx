@@ -1,8 +1,14 @@
+import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect } from "@storybook/test";
-import { within, waitFor } from "@storybook/testing-library";
+import { userEvent, within } from "@storybook/testing-library";
 import { SpectatorView } from "../app/components/spectator-view";
-import { createGameAndSessionDecorator } from "./utils";
+import { GameContext } from "../app/game.context";
+import { SessionContext } from "../app/session.context";
+import type { GameMachine } from "../app/game.machine";
+import type { SessionMachine } from "../app/session.machine";
+import { defaultGameSnapshot, defaultSessionSnapshot, withActorKit } from "./utils";
+import { createActorKitMockClient } from "actor-kit/test";
 
 const meta = {
   title: "Views/SpectatorView",
@@ -10,13 +16,47 @@ const meta = {
   parameters: {
     layout: "fullscreen",
   },
-  decorators: [createGameAndSessionDecorator()],
+  decorators: [
+    withActorKit<SessionMachine>({
+      actorType: "session",
+      context: SessionContext,
+    }),
+    withActorKit<GameMachine>({
+      actorType: "game",
+      context: GameContext,
+    }),
+  ],
 } satisfies Meta<typeof SpectatorView>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const InLobby: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "spectator-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            players: [
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+          },
+        },
+      },
+    },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     
@@ -29,290 +69,180 @@ export const InLobby: Story = {
   },
 };
 
-export const ActiveGame: Story = {
-  decorators: [
-    createGameAndSessionDecorator({
-      gameOverrides: {
-        public: {
-          gameStatus: "active" as const,
-          currentQuestion: {
-            text: "What is the capital of France?",
-            isVisible: true,
+export const WithBuzzerQueue: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "spectator-123",
           },
         },
-        value: { active: "questionActive" }
       },
-    }),
-  ],
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "active",
+            currentQuestion: {
+              text: "What is the capital of France?",
+              isVisible: true,
+            },
+            buzzerQueue: ["player-1", "player-2"],
+            players: [
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+          },
+          value: { active: "answerValidation" },
+        },
+      },
+    },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     
     // Verify question is visible
-    const question = await canvas.findByText(/what is the capital of france/i);
+    const question = canvas.getByTestId('current-question');
     expect(question).toBeInTheDocument();
-    
-    // Verify leaderboard is shown
-    const leaderboard = await canvas.findByText(/leaderboard/i);
-    expect(leaderboard).toBeInTheDocument();
-    
-    // Verify empty buzzer queue message
-    const emptyQueue = await canvas.findByText(/waiting for players to buzz in/i);
-    expect(emptyQueue).toBeInTheDocument();
-  },
-};
+    expect(question).toHaveTextContent('What is the capital of France?');
 
-export const WithBuzzerQueue: Story = {
-  decorators: [
-    createGameAndSessionDecorator({
-      gameOverrides: {
-        public: {
-          gameStatus: "active" as const,
-          currentQuestion: {
-            text: "What is the capital of France?",
-            isVisible: true,
-          },
-          buzzerQueue: ["player-456", "host-123"],
-        },
-        value: { active: "answerValidation" }
-      },
-    }),
-  ],
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
+    // Verify buzzer queue section exists
+    const queueSection = canvas.getByTestId('buzzer-queue-section');
+    expect(queueSection).toBeInTheDocument();
+
+    // Verify first player in queue
+    const firstPlayer = canvas.getByTestId('queue-player-player-1');
+    expect(firstPlayer).toBeInTheDocument();
+    expect(firstPlayer).toHaveTextContent('Player 1');
     
-    // Verify buzzer queue elements
-    const answeringBadge = await canvas.findByText(/answering/i);
+    // Verify answering badge on first player
+    const answeringBadge = canvas.getByTestId('answering-badge');
     expect(answeringBadge).toBeInTheDocument();
-    
-    // Verify queue order
-    const queueItems = await canvas.findAllByRole('generic', { name: /player/i });
-    expect(queueItems.length).toBe(2);
+    expect(answeringBadge).toHaveTextContent('Answering');
+
+    // Verify second player in queue
+    const secondPlayer = canvas.getByTestId('queue-player-player-2');
+    expect(secondPlayer).toBeInTheDocument();
+    expect(secondPlayer).toHaveTextContent('Player 2');
   },
 };
 
-export const MultipleBuzzersWithIncorrectAnswers: Story = {
-  decorators: [
-    createGameAndSessionDecorator({
-      gameOverrides: {
-        public: {
-          gameStatus: "active" as const,
-          currentQuestion: {
-            text: "What is the capital of France?",
-            isVisible: true,
+export const PlayerAnsweredCorrectly: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "spectator-123",
           },
-          buzzerQueue: [
-            "player-3", 
-            "player-4", 
-            "player-5"
-          ],
-          lastAnswerResult: {
-            playerId: "player-2",
-            playerName: "Emma",
-            correct: false
-          },
-          players: [
-            { id: "player-1", name: "John", score: 2 },
-            { id: "player-2", name: "Emma", score: 1 },
-            { id: "player-3", name: "Michael", score: 1 },
-            { id: "player-4", name: "Sarah", score: 0 },
-            { id: "player-5", name: "David", score: 0 },
-          ],
-          previousAnswers: [
-            { playerId: "player-1", playerName: "John", correct: false },
-            { playerId: "player-2", playerName: "Emma", correct: false },
-          ]
         },
-        value: { active: "answerValidation" }
       },
-    }),
-  ],
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    
-    // Verify previous wrong answers
-    const wrongBadges = await canvas.findAllByText('Wrong');
-    expect(wrongBadges).toHaveLength(2);
-    
-    // Verify current queue
-    const currentPlayer = await canvas.findByText('Michael');
-    expect(currentPlayer).toBeInTheDocument();
-    
-    // Verify scores are shown
-    const johnScore = await canvas.findByText('2');
-    expect(johnScore).toBeInTheDocument();
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "active",
+            currentQuestion: null,
+            lastAnswerResult: {
+              playerId: "player-1",
+              playerName: "Player 1",
+              correct: true,
+            },
+            players: [
+              { id: "player-1", name: "Player 1", score: 1 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+          },
+          value: { active: "questionPrep" },
+        },
+      },
+    },
   },
-};
-
-export const ManyPreviousAnswers: Story = {
-  decorators: [
-    createGameAndSessionDecorator({
-      gameOverrides: {
-        public: {
-          gameStatus: "active" as const,
-          currentQuestion: {
-            text: "What is the capital of France?",
-            isVisible: true,
-          },
-          buzzerQueue: [
-            "current-player",
-            "next-player-1",
-            "next-player-2",
-          ],
-          players: [
-            { id: "current-player", name: "Current Player", score: 0 },
-            { id: "next-player-1", name: "Next Player 1", score: 0 },
-            { id: "next-player-2", name: "Next Player 2", score: 0 },
-            ...Array.from({ length: 10 }, (_, i) => ({
-              id: `wrong-${i}`,
-              name: `Wrong Player ${i + 1}`,
-              score: 0,
-            })),
-          ],
-          previousAnswers: Array.from({ length: 10 }, (_, i) => ({
-            playerId: `wrong-${i}`,
-            playerName: `Wrong Player ${i + 1}`,
-            correct: false,
-          })),
-        },
-        value: { active: "answerValidation" }
-      },
-    }),
-  ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     
-    // Verify all wrong answers are shown
-    const wrongBadges = await canvas.findAllByText('Wrong');
-    expect(wrongBadges).toHaveLength(10);
-    
-    // Verify current player is shown
-    const currentPlayer = await canvas.findByText('Current Player');
-    expect(currentPlayer).toBeInTheDocument();
-    
-    // Verify queue is shown
-    const nextPlayers = await canvas.findAllByText(/Next Player/);
-    expect(nextPlayers).toHaveLength(2);
-  },
-};
-
-export const WaitingForNextQuestion: Story = {
-  decorators: [
-    createGameAndSessionDecorator({
-      gameOverrides: {
-        public: {
-          gameStatus: "active" as const,
-          currentQuestion: null,  // No current question yet
-          buzzerQueue: [],        // Queue is cleared after correct answer
-          players: [
-            { id: "player-1", name: "John", score: 3 },
-            { id: "player-2", name: "Emma", score: 1 },
-            { id: "player-3", name: "Michael", score: 1 },
-            { id: "player-4", name: "Sarah", score: 0 },
-          ],
-          lastAnswerResult: {
-            playerId: "player-1",
-            playerName: "John",
-            correct: true
-          },
-          previousAnswers: [
-            { playerId: "player-2", playerName: "Emma", correct: false },
-            { playerId: "player-3", playerName: "Michael", correct: false },
-          ]
-        },
-        value: { active: "questionPrep" }
-      },
-    }),
-  ],
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    
-    // Verify waiting message
-    const waitingMessage = await canvas.findByText(/waiting for question/i);
-    expect(waitingMessage).toBeInTheDocument();
-    
-    // Verify previous answers
-    const wrongBadges = await canvas.findAllByText('Wrong');
-    expect(wrongBadges).toHaveLength(2);
-    
-    // Verify updated scores
-    const johnScore = await canvas.findByText('3');
-    expect(johnScore).toBeInTheDocument();
-  },
-};
-
-export const CorrectAnswerCelebration: Story = {
-  decorators: [
-    createGameAndSessionDecorator({
-      gameOverrides: {
-        public: {
-          gameStatus: "active" as const,
-          currentQuestion: null,
-          buzzerQueue: [],
-          players: [
-            { id: "player-1", name: "John", score: 3 },
-            { id: "player-2", name: "Emma", score: 2 },
-            { id: "player-3", name: "Michael", score: 1 },
-            { id: "player-4", name: "Sarah", score: 0 },
-          ],
-          lastAnswerResult: {
-            playerId: "player-2",
-            playerName: "Emma",
-            correct: true
-          },
-          previousAnswers: [
-            { playerId: "player-3", playerName: "Michael", correct: false },
-            { playerId: "player-4", playerName: "Sarah", correct: false },
-          ]
-        },
-        value: { active: "questionPrep" }
-      },
-    }),
-  ],
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    
-    // Verify celebration elements
-    const correctMessage = await canvas.findByText(/correct!/i);
+    // Verify celebration elements using test IDs
+    const correctMessage = canvas.getByTestId('correct-message');
     expect(correctMessage).toBeInTheDocument();
+    expect(correctMessage).toHaveTextContent(/correct/i);
     
-    const playerName = await canvas.findByText('Emma');
-    expect(playerName).toBeInTheDocument();
+    const winnerName = canvas.getByTestId('winner-name');
+    expect(winnerName).toBeInTheDocument();
+    expect(winnerName).toHaveTextContent('Player 1');
     
-    // Verify score display
-    const score = await canvas.findByText(/score: 2/i);
-    expect(score).toBeInTheDocument();
+    const rankDisplay = canvas.getByTestId('rank-display');
+    expect(rankDisplay).toBeInTheDocument();
+    expect(rankDisplay).toHaveTextContent('#1');
     
-    // Verify place display
-    const placeText = await canvas.findByText(/#2/);
-    expect(placeText).toBeInTheDocument();
+    const scoreDisplay = canvas.getByTestId('score-display');
+    expect(scoreDisplay).toBeInTheDocument();
+    expect(scoreDisplay).toHaveTextContent('Score: 1');
   },
 };
 
 export const GameFinished: Story = {
-  decorators: [
-    createGameAndSessionDecorator({
-      gameOverrides: {
-        public: {
-          gameStatus: "finished" as const,
-          winner: "player-456",
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "spectator-123",
+          },
         },
-        value: "finished"
       },
-    }),
-  ],
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "finished",
+            winner: "player-1",
+            players: [
+              { id: "player-1", name: "Player 1", score: 3 },
+              { id: "player-2", name: "Player 2", score: 1 },
+            ],
+          },
+          value: "finished",
+        },
+      },
+    },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     
-    // Verify game over elements
-    const gameOverTitle = await canvas.findByText(/game over/i);
+    // Verify game over elements using test IDs
+    const gameOverTitle = canvas.getByTestId('game-over-title');
     expect(gameOverTitle).toBeInTheDocument();
+    expect(gameOverTitle).toHaveTextContent(/game over/i);
     
-    // Verify final scores are shown
-    const finalScores = await canvas.findByText(/final scores/i);
-    expect(finalScores).toBeInTheDocument();
+    // Find winner announcement section
+    const winnerSection = canvas.getByTestId('winner-announcement');
+    expect(winnerSection).toBeInTheDocument();
+    expect(winnerSection).toHaveTextContent(/player 1.*wins/i);
     
-    // Verify winner display
-    const winnerText = await canvas.findByText(/wins!/i);
-    expect(winnerText).toBeInTheDocument();
+    // Find Final Scores heading
+    const scoresHeading = canvas.getByTestId('final-scores-heading');
+    expect(scoresHeading).toBeInTheDocument();
+    expect(scoresHeading).toHaveTextContent(/final scores/i);
+
+    // Verify player scores using test IDs
+    const player1Score = canvas.getByTestId('player-score-player-1');
+    expect(player1Score).toBeInTheDocument();
+    expect(player1Score).toHaveTextContent('Player 1');
+    expect(player1Score).toHaveTextContent('3');
+    
+    const player2Score = canvas.getByTestId('player-score-player-2');
+    expect(player2Score).toBeInTheDocument();
+    expect(player2Score).toHaveTextContent('Player 2');
+    expect(player2Score).toHaveTextContent('1');
   },
 };

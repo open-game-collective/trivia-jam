@@ -121,12 +121,19 @@ const CelebrationDisplay = ({
         animate={{ scale: 1, rotate: 0 }}
         transition={{ type: "spring", bounce: 0.5 }}
         className="bg-gradient-to-r from-indigo-500 to-purple-500 p-1 rounded-2xl mb-8"
+        data-testid="celebration-container"
       >
         <div className="bg-gray-900 rounded-xl p-8">
-          <h2 className="text-7xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-4">
+          <h2 
+            className="text-7xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-4"
+            data-testid="correct-message"
+          >
             Correct! 🎉
           </h2>
-          <div className="text-3xl text-center text-white/90">
+          <div 
+            className="text-3xl text-center text-white/90"
+            data-testid="winner-name"
+          >
             <span className="font-bold text-indigo-400">{winner.playerName}</span>
           </div>
         </div>
@@ -136,6 +143,7 @@ const CelebrationDisplay = ({
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="text-center mb-8"
+        data-testid="rank-display"
       >
         <div className="text-6xl mb-4">
           {getPlaceEmoji(currentRank)}
@@ -163,6 +171,7 @@ const CelebrationDisplay = ({
         animate={{ opacity: 1 }}
         transition={{ delay: 0.3 }}
         className="text-4xl font-bold text-center"
+        data-testid="score-display"
       >
         Score: <span className="text-indigo-400">{player?.score || 0}</span>
       </motion.div>
@@ -278,18 +287,27 @@ const GameplayDisplay = ({
         {/* Question Display */}
         <div className="flex-1 flex flex-col items-center justify-center mb-8">
           {currentQuestion?.isVisible ? (
-            <h1 className="text-6xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+            <h1 
+              className="text-6xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400"
+              data-testid="current-question"
+            >
               {currentQuestion.text}
             </h1>
           ) : (
-            <div className="text-3xl text-center text-indigo-300/60">
+            <div 
+              className="text-3xl text-center text-indigo-300/60"
+              data-testid="waiting-message"
+            >
               Waiting for question...
             </div>
           )}
         </div>
 
         {/* Buzzer Queue */}
-        <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+        <div 
+          className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
+          data-testid="buzzer-queue-section"
+        >
           <div className="flex items-center gap-2 mb-4">
             <Bell className="w-6 h-6 text-indigo-400" />
             <h3 className="text-2xl font-bold text-indigo-400">
@@ -305,6 +323,7 @@ const GameplayDisplay = ({
                   return (
                     <motion.div
                       key={playerId}
+                      data-testid={`queue-player-${playerId}`}
                       initial={{ opacity: 0, x: -50 }}
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 50 }}
@@ -322,7 +341,10 @@ const GameplayDisplay = ({
                         <span className="text-xl">{player?.name}</span>
                       </div>
                       {index === 0 && (
-                        <span className="px-3 py-1 bg-indigo-500/20 rounded-full text-sm font-bold border border-indigo-500/30">
+                        <span 
+                          className="px-3 py-1 bg-indigo-500/20 rounded-full text-sm font-bold border border-indigo-500/30"
+                          data-testid="answering-badge"
+                        >
                           Answering
                         </span>
                       )}
@@ -330,31 +352,12 @@ const GameplayDisplay = ({
                   );
                 })}
               </AnimatePresence>
-
-              {/* Previous Wrong Answers */}
-              {previousAnswers && previousAnswers.length > 0 && (
-                <div className="mt-6 space-y-3">
-                  <h4 className="text-lg font-semibold text-indigo-300 sticky top-0 bg-gray-900/80 backdrop-blur-sm py-2">
-                    Previous Attempts
-                  </h4>
-                  {previousAnswers.map((answer) => (
-                    <motion.div
-                      key={answer.playerId}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex items-center justify-between p-4 rounded-xl border bg-red-500/10 border-red-500/30"
-                    >
-                      <span className="text-lg">{answer.playerName}</span>
-                      <span className="px-3 py-1 bg-red-500/20 rounded-full text-sm font-bold border border-red-500/30">
-                        Wrong
-                      </span>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-8 text-indigo-300/60">
+            <div 
+              className="flex flex-col items-center justify-center py-8 text-indigo-300/60"
+              data-testid="empty-queue-message"
+            >
               <Bell className="w-12 h-12 mb-4 opacity-50" />
               <p className="text-xl">Waiting for players to buzz in...</p>
             </div>
@@ -418,16 +421,25 @@ const GameFinishedDisplay = ({
         animate={{ opacity: 1, scale: 1 }}
         className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
       >
-        <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+        <h1 
+          className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400"
+          data-testid="game-over-title"
+        >
           Game Over!
         </h1>
 
-        <div className="text-2xl text-center mb-8">
+        <div 
+          className="text-2xl text-center mb-8"
+          data-testid="winner-announcement"
+        >
           <span className="font-bold text-yellow-400">{winner.name}</span> wins!
         </div>
 
         <div className="space-y-3">
-          <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
+          <h2 
+            className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2"
+            data-testid="final-scores-heading"
+          >
             <Trophy className="w-6 h-6" /> Final Scores
           </h2>
           {players
@@ -435,6 +447,7 @@ const GameFinishedDisplay = ({
             .map((player, index) => (
               <motion.div
                 key={player.id}
+                data-testid={`player-score-${player.id}`}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}

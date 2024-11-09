@@ -183,43 +183,49 @@ export interface ActorKitParameters<TMachine extends AnyActorKitStateMachine> {
 /**
  * Storybook decorator that sets up actor-kit state machines.
  *
- * Use this for static stories where you don't need to manipulate the actor state.
- * For interactive stories that need client access, set up the client manually
- * in the story instead.
+ * There are two main patterns for testing with actor-kit:
  *
- * @template TMachine - Type of the actor-kit state machine
+ * 1. Static Stories (Use parameters.actorKit + within):
+ * - Use this decorator with parameters.actorKit
+ * - Use `within(canvasElement)` in play functions
+ * - Good for simple stories that don't need state manipulation
+ *
+ * 2. Interactive Stories (Use mount + direct client):
+ * - Don't use this decorator
+ * - Create client manually and use mount in play function
+ * - Good for stories that need to manipulate state
  *
  * @example
  * ```tsx
- * // For static stories:
- * const meta: Meta = {
- *   decorators: [
- *     withActorKit<SessionMachine>({
- *       actorType: "session",
- *       context: SessionContext,
- *       defaultSnapshot: defaultState
- *     })
- *   ]
+ * // Pattern 1: Static Story
+ * export const Static: Story = {
+ *   parameters: {
+ *     actorKit: {
+ *       session: {
+ *         "session-123": { ... }
+ *       }
+ *     }
+ *   },
+ *   play: async ({ canvasElement }) => {
+ *     const canvas = within(canvasElement);
+ *     // Test UI state...
+ *   }
  * };
  *
- * // For interactive stories, don't use this decorator:
+ * // Pattern 2: Interactive Story
  * export const Interactive: Story = {
- *   decorators: [(Story) => {
+ *   play: async ({ canvasElement, mount }) => {
  *     const client = createActorKitMockClient({...});
- *     return (
- *       <Context.ProviderFromClient client={client}>
- *         <Story />
- *       </Context.ProviderFromClient>
- *     );
- *   }],
- *   play: async ({ mount }) => {
- *     const client = createActorKitMockClient({...});
- *     const canvas = await mount(
+ *     const canvas = within(canvasElement);
+ *     
+ *     await mount(
  *       <Context.ProviderFromClient client={client}>
  *         <Component />
  *       </Context.ProviderFromClient>
  *     );
+ *     
  *     // Now you can manipulate client state...
+ *     client.produce((draft) => { ... });
  *   }
  * };
  * ```

@@ -874,6 +874,41 @@ await client.connect();
 client.send({ type: "ADD_TODO", text: "Buy milk" });
 ```
 
+#### `ActorKitClient` Methods
+
+- **`connect()`**: Establishes connection to the actor server
+- **`disconnect()`**: Closes the connection to the actor server
+- **`send(event)`**: Sends an event to the actor
+- **`getState()`**: Returns the current state snapshot
+- **`subscribe(listener)`**: Registers a listener for state changes
+- **`waitFor(predicateFn, timeoutMs?)`**: Waits for a state condition to be met
+
+##### Using `waitFor`
+
+The `waitFor` method allows you to wait for specific state conditions:
+
+```typescript
+import { createActorKitClient } from 'actor-kit/browser';
+
+const client = createActorKitClient<TodoMachine>({
+  // ... client config
+});
+
+// Wait for a specific state value
+await client.waitFor(state => state.value === 'ready');
+
+// Wait for a condition with custom timeout
+await client.waitFor(
+  state => state.public.todos.length > 0,
+  10000 // 10 seconds
+);
+
+// Wait for complex conditions
+await client.waitFor(state => 
+  state.public.todos.some(todo => todo.text === 'Buy milk' && todo.completed)
+);
+```
+
 ### ⚛️ `actor-kit/react`
 
 #### `createActorKitContext<TMachine>(actorType: string)`
@@ -1155,129 +1190,173 @@ createMachine({
 });
 ```
 
-### 🧪 Testing Utilities
+### 🧪 Testing with Mock Client
 
 #### `createActorKitMockClient<TMachine>`
 
-The `createActorKitMockClient` function creates a mock client for testing Actor Kit state machines without needing a live server. It includes all standard client methods plus a `produce` method for directly manipulating state and testing state transitions.
+Creates a mock client for testing Actor Kit state machines without needing a live server. It implements the standard `ActorKitClient` interface plus additional testing utilities.
 
 **Type Parameters:**
-
-- `TMachine`: The type of the state machine, extending `AnyActorKitStateMachine`.
+- `TMachine`: The type of the state machine, extending `AnyActorKitStateMachine`
 
 **Parameters:**
-
-- `props: ActorKitMockClientProps<TMachine>`: Configuration options for the mock client, including:
-  - `snapshot`: The initial state snapshot of the mock actor.
-  - `onSend?`: An optional callback function that is invoked whenever an event is sent to the mock client.
+- `props: ActorKitMockClientProps<TMachine>`: Configuration options including:
+  - `initialSnapshot`: The initial state snapshot
+  - `onSend?`: Optional callback function invoked whenever an event is sent
 
 **Returns:**
-
 An `ActorKitMockClient<TMachine>` with all standard client methods plus:
-- `produce(recipe: (draft: CallerSnapshotFrom<TMachine>) => void)`: Method for directly manipulating state using Immer.
+- `produce(recipe: (draft: Draft<CallerSnapshotFrom<TMachine>>) => void)`: Method for directly manipulating state using Immer
 
-**Example Usage:**
+**Basic Example:**
 
 ```typescript
-import { createActorKitMockClient } from "actor-kit/test";
-import type { TodoMachine } from "./todo.machine";
+import { createActorKitMockClient } from 'actor-kit/test';
+import type { TodoMachine } from './todo.machine';
 
-describe("Todo State Management", () => {
-  it("should transition through loading states", () => {
-    // Create a mock client starting in idle state
+describe('Todo State Management', () => {
+  it('should handle state transitions', () => {
     const mockClient = createActorKitMockClient<TodoMachine>({
-      snapshot: {
+      initialSnapshot: {
         public: { 
           todos: [],
-          status: "idle"
+          status: 'idle'
         },
         private: {},
-        value: "idle"
+        value: 'idle'
       }
     });
 
-    // Verify initial state
-    expect(mockClient.getState().value).toBe("idle");
-    expect(mockClient.getState().public.todos).toHaveLength(0);
-
-    // Update state to loading
+    // Use Immer's produce to update state
     mockClient.produce((draft) => {
-      draft.value = "loading";
-      draft.public.status = "loading";
-    });
-
-    // Verify loading state
-    expect(mockClient.getState().value).toBe("loading");
-    expect(mockClient.getState().public.status).toBe("loading");
-
-    // Simulate completion of loading
-    mockClient.produce((draft) => {
-      draft.value = "ready";
-      draft.public.status = "ready";
       draft.public.todos.push({
-        id: "1",
-        text: "New todo",
+        id: '1',
+        text: 'Test todo',
         completed: false
       });
+      draft.value = 'ready';
     });
 
-    // Verify final state
-    expect(mockClient.getState().value).toBe("ready");
+    // Verify state changes
     expect(mockClient.getState().public.todos).toHaveLength(1);
+    expect(mockClient.getState().value).toBe('ready');
   });
 });
 ```
 
-When testing React components:
+**Spying on Events:**
 
 ```typescript
-import { render, screen } from "@testing-library/react";
-import { createActorKitContext } from "actor-kit/react";
-import { createActorKitMockClient } from "actor-kit/test";
+import { vi } from 'vitest'; // or jest
 
-const TodoContext = createActorKitContext<TodoMachine>("todo");
-
-describe("TodoList", () => {
-  it("shows loading and then content", () => {
+describe('Todo Event Handling', () => {
+  it('should track sent events', () => {
+    const sendSpy = vi.fn();
     const mockClient = createActorKitMockClient<TodoMachine>({
-      snapshot: {
+      initialSnapshot: {
         public: { 
           todos: [],
-          status: "loading"
+          status: 'idle'
         },
         private: {},
-        value: "loading"
+        value: 'idle'
+      },
+      onSend: sendSpy
+    });
+
+    // Send an event
+    mockClient.send({ type: 'ADD_TODO', text: 'Test todo' });
+
+    // Verify the event was sent
+    expect(sendSpy).toHaveBeenCalledWith({
+      type: 'ADD_TODO',
+      text: 'Test todo'
+    });
+
+    // Check call count
+    expect(sendSpy).toHaveBeenCalledTimes(1);
+
+    // Verify specific event properties
+    const [sentEvent] = sendSpy.mock.calls[0];
+    expect(sentEvent.type).toBe('ADD_TODO');
+    expect(sentEvent.text).toBe('Test todo');
+  });
+
+  it('should track multiple events in order', () => {
+    const sendSpy = vi.fn();
+    const mockClient = createActorKitMockClient<TodoMachine>({
+      initialSnapshot: {
+        public: { 
+          todos: [{ id: '1', text: 'Test todo', completed: false }],
+          status: 'idle'
+        },
+        private: {},
+        value: 'idle'
+      },
+      onSend: sendSpy
+    });
+
+    // Send multiple events
+    mockClient.send({ type: 'TOGGLE_TODO', id: '1' });
+    mockClient.send({ type: 'DELETE_TODO', id: '1' });
+
+    // Verify events were sent in order
+    expect(sendSpy.mock.calls).toEqual([
+      [{ type: 'TOGGLE_TODO', id: '1' }],
+      [{ type: 'DELETE_TODO', id: '1' }]
+    ]);
+  });
+});
+```
+
+**Testing React Components:**
+
+```typescript
+import { render, screen } from '@testing-library/react';
+import { TodoActorKitContext } from './todo.context';
+import { createActorKitMockClient } from 'actor-kit/test';
+
+describe('TodoList', () => {
+  it('renders todos correctly', () => {
+    const mockClient = createActorKitMockClient<TodoMachine>({
+      initialSnapshot: {
+        public: { 
+          todos: [],
+          status: 'idle'
+        },
+        private: {},
+        value: 'idle'
       }
     });
 
-    const { rerender } = render(
-      <TodoContext.ProviderFromClient client={mockClient}>
+    render(
+      <TodoActorKitContext.ProviderFromClient client={mockClient}>
         <TodoList />
-      </TodoContext.ProviderFromClient>
+      </TodoActorKitContext.ProviderFromClient>
     );
 
-    // Verify loading state
-    expect(screen.getByText("Loading...")).toBeInTheDocument();
-
-    // Transition to ready state with data
+    // Update state using Immer
     mockClient.produce((draft) => {
-      draft.value = "ready";
-      draft.public.status = "ready";
       draft.public.todos.push({
-        id: "1",
-        text: "Test todo",
+        id: '1',
+        text: 'Test todo',
         completed: false
       });
     });
 
-    // Verify content is now shown
-    expect(screen.queryByText("Loading...")).not.toBeInTheDocument();
-    expect(screen.getByText("Test todo")).toBeInTheDocument();
+    // Verify UI updates
+    expect(screen.getByText('Test todo')).toBeInTheDocument();
   });
 });
 ```
 
-The `produce` method uses Immer under the hood, providing an intuitive way to make immutable state updates with mutable syntax. This is particularly useful for testing state transitions and their effects on your UI without having to simulate the actual events that would cause these transitions.
+The mock client provides two powerful testing capabilities:
+
+1. **State Manipulation**: The `produce` method uses Immer to allow intuitive, mutable-style updates to the immutable state. This makes it easy to set up different test scenarios.
+
+2. **Event Tracking**: The `onSend` callback can be used with testing framework spies to verify that components are sending the correct events at the right times.
+
+These features make it simple to test both state transitions and component behavior without needing a real server connection.
 
 ## 👥 Caller Types
 

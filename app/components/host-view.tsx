@@ -228,7 +228,7 @@ const LobbyControls = ({
           >
             {isStarting ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-5 h-5 animate-spin" data-testid="loading-spinner" />
                 Starting Game...
               </>
             ) : (
@@ -334,13 +334,17 @@ const QuestionControls = ({
             animate={{ opacity: 1, y: 0 }}
             className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
           >
-            <h2 className="text-xl font-bold mb-2 text-indigo-300">Enter Question</h2>
+            <label htmlFor="question-input" className="text-xl font-bold mb-2 text-indigo-300 block">
+              Enter Question
+            </label>
             <textarea
+              id="question-input"
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
               placeholder="Type your question here..."
               className="w-full bg-gray-900/50 rounded-xl p-3 sm:p-4 text-white placeholder-white/50 border border-gray-700/50 mb-3 sm:mb-4 text-sm sm:text-base"
               rows={3}
+              aria-label="Enter question"
             />
             <motion.button
               onClick={handleSubmitQuestion}
@@ -375,6 +379,7 @@ const QuestionControls = ({
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <motion.button
                         onClick={() => handleValidateAnswer(playerId, true)}
+                        data-testid="correct-button"
                         className="bg-green-500/20 border border-green-500/30 hover:bg-green-500/30 text-white font-bold py-2 sm:py-3 px-3 sm:px-6 rounded-xl transition-all flex items-center justify-center gap-2"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
@@ -384,6 +389,7 @@ const QuestionControls = ({
                       </motion.button>
                       <motion.button
                         onClick={() => handleValidateAnswer(playerId, false)}
+                        data-testid="incorrect-button"
                         className="bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-white font-bold py-2 sm:py-3 px-3 sm:px-6 rounded-xl transition-all flex items-center justify-center gap-2"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
