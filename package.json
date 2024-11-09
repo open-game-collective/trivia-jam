@@ -10,7 +10,8 @@
     "storybook": "storybook dev -p 6006",
     "build-storybook": "storybook build",
     "deploy-storybook": "npm run build-storybook && wrangler pages deploy storybook-static",
-    "preview-storybook": "npx http-server storybook-static"
+    "preview-storybook": "npx http-server storybook-static",
+    "test-storybook": "test-storybook"
   },
   "keywords": [
     "trivia"
@@ -29,7 +30,6 @@
     "@remix-run/dev": "^2.12.1",
     "@remix-run/react": "^2.12.1",
     "@remix-run/server-runtime": "^2.13.1",
-    "@storybook/test-runner": "^0.19.1",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "actor-kit": "^0.40.0",
@@ -67,12 +67,16 @@
     "@storybook/react": "^8.4.2",
     "@storybook/react-vite": "^8.4.2",
     "@storybook/test": "^8.4.2",
+    "@storybook/test-runner": "^0.19.1",
     "@storybook/testing-library": "^0.2.2",
     "@types/canvas-confetti": "^1.6.4",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
     "daisyui": "^4.12.14",
+    "http-server": "^14.1.1",
     "postcss": "^8.4.47",
     "storybook": "^8.4.2",
-    "tailwindcss": "^3.4.14"
+    "tailwindcss": "^3.4.14",
+    "wait-on": "^8.0.1"
   }
 }
