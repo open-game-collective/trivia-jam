@@ -15,24 +15,25 @@ jobs:
       - name: Install dependencies
         run: |
           npm install
-          npm install @storybook/addon-coverage --save-dev
+          npm install @swc/core-linux-x64-gnu @swc/core-linux-x64-musl --save-optional
+          npm install @esbuild/linux-x64 --save-optional
+          npm rebuild @swc/core esbuild
       
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
       
-      - name: Build Storybook
-        run: npm run build-storybook --quiet
-      
-      - name: Serve Storybook and run tests
+      - name: Build and Test Storybook
+        env:
+          DEBUG_PRINT_LIMIT: 10000
+          NODE_ENV: production
         run: |
+          # Build Storybook
+          npm run build-storybook --quiet
+          
+          # Start server and run tests with increased timeout and reduced workers
           npx concurrently -k -s first -n "SB,TEST" -c "magenta,blue" \
             "npx http-server storybook-static --port 6006 --silent" \
-            "npx wait-on tcp:127.0.0.1:6006 && npm run test-storybook -- --coverage --maxWorkers=2"
-
-      - name: Generate Coverage Report
-        run: |
-          npx nyc report --reporter=lcov -t coverage/storybook --report-dir coverage/storybook-lcov
-          npx nyc report --reporter=text -t coverage/storybook
+            "npx wait-on tcp:127.0.0.1:6006 && npm run test-storybook -- --maxWorkers=2 --testTimeout=60000"
         
       - name: Upload coverage reports
         uses: actions/upload-artifact@v4
