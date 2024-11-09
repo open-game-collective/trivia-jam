@@ -32,13 +32,18 @@ jobs:
           # Build Storybook with explicit Rollup path
           ROLLUP_NATIVE_PATH="$(pwd)/node_modules/@rollup/rollup-linux-x64-gnu/rollup.linux-x64-gnu.node" npm run build-storybook --quiet
           
+          # Create coverage directory
+          mkdir -p coverage/storybook
+          
           # Start server and run tests with increased timeout and reduced workers
           npx concurrently -k -s first -n "SB,TEST" -c "magenta,blue" \
             "npx http-server storybook-static --port 6006 --silent" \
-            "npx wait-on tcp:127.0.0.1:6006 && npm run test-storybook -- --maxWorkers=2 --testTimeout=60000"
+            "npx wait-on tcp:127.0.0.1:6006 && npm run test-storybook -- --maxWorkers=2 --testTimeout=60000 --coverage --coverageDirectory=coverage/storybook"
         
       - name: Upload coverage reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: storybook-coverage
-          path: coverage/
+          path: coverage/storybook/
+          if-no-files-found: warn
