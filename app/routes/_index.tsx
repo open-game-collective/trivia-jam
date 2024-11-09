@@ -1,7 +1,11 @@
 import { catchError } from "@jonmumm/utils/catchError";
 import { useStore } from "@nanostores/react";
 
-import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/cloudflare";
+import type {
+  LoaderFunctionArgs,
+  MetaFunction,
+  TypedResponse,
+} from "@remix-run/cloudflare";
 import {
   json,
   useLoaderData,
@@ -29,8 +33,14 @@ export const loader = async (args: LoaderFunctionArgs) => {
   return json({ gameId });
 };
 
+export type LoaderData = Awaited<
+  ReturnType<typeof loader>
+> extends TypedResponse<infer T>
+  ? T
+  : never;
+
 export default function Index() {
-  const { gameId } = useLoaderData<typeof loader>();
+  const { gameId } = useLoaderData<LoaderData>();
   const [searchParams] = useSearchParams();
   const code = searchParams.get("code");
 
@@ -72,10 +82,6 @@ function HomePageContent({
     e.preventDefault();
     const gameCode = $gameCode.get();
     if (!gameCode) return;
-    console.log({ gameCode });
-    console.log({ gameCode });
-    console.log({ gameCode });
-    console.log({ gameCode });
 
     $isJoining.set(true);
     const [error] = await catchError(

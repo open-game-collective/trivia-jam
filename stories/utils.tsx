@@ -1,34 +1,16 @@
-import React from "react";
+import { createRemixStub } from "@remix-run/testing";
+import type { StoryContext, StoryFn } from "@storybook/react";
+import { AnyActorKitStateMachine, CallerSnapshotFrom } from "actor-kit";
+import { createActorKitContext } from "actor-kit/react";
 import { createActorKitMockClient } from "actor-kit/test";
+import React from "react";
 import type { GameMachine } from "../app/game.machine";
-import { GameContext } from "../app/game.context";
-import { SessionContext } from "../app/session.context";
-import type { SessionMachine } from "../app/session.machine";
-import type { GamePublicContext } from "../app/game.types";
-import { StateFrom } from "xstate";
-import type { StoryContext } from '@storybook/react';
-
-// Type for game status
-type GameStatus = "lobby" | "active" | "finished";
-
-// Type for current question
-type CurrentQuestion = {
-  text: string;
-  isVisible: boolean;
-} | null;
-
-// Extend GamePublicContext to allow for different states
-type StoryGamePublicContext = Omit<GamePublicContext, "gameStatus" | "currentQuestion" | "winner"> & {
-  gameStatus: GameStatus;
-  currentQuestion: CurrentQuestion;
-  winner: string | null;
-};
-
-type GameStateValue = StateFrom<GameMachine>["value"];
+import { SessionMachine } from "../app/session.machine";
 
 export const defaultGameSnapshot = {
   public: {
     id: "test-game-id",
+    gameCode: "TEST123",
     hostId: "host-123",
     hostName: "Test Host",
     players: [
@@ -36,17 +18,17 @@ export const defaultGameSnapshot = {
       { id: "player-456", name: "Test Player", score: 0 },
     ],
     currentQuestion: null,
-    buzzerQueue: [] as string[],
-    gameStatus: "lobby" as GameStatus,
+    buzzerQueue: [],
+    gameStatus: "lobby",
     winner: null,
     settings: {
       maxPlayers: 10,
       questionCount: 10,
     },
-  } satisfies StoryGamePublicContext,
+  },
   private: {},
-  value: "lobby" as GameStateValue
-};
+  value: "lobby",
+} satisfies CallerSnapshotFrom<GameMachine>;
 
 export const defaultSessionSnapshot = {
   public: {
@@ -54,63 +36,247 @@ export const defaultSessionSnapshot = {
     gameIdsByJoinCode: {},
   },
   private: {},
-  value: { Initialization: "Ready" as const }
-};
+  value: { Initialization: "Ready" as const },
+} satisfies CallerSnapshotFrom<SessionMachine>;
 
-type GameSnapshotOverrides = {
-  public?: Partial<StoryGamePublicContext>;
-  value?: GameStateValue;
-};
+interface Route {
+  path: string;
+  Component: React.ComponentType<any>;
+}
 
-// Add return type for the decorator
-export type DecoratorClients = {
-  gameClient: ReturnType<typeof createActorKitMockClient<GameMachine>>;
-  sessionClient: ReturnType<typeof createActorKitMockClient<SessionMachine>>;
-};
+/**
+ * Configuration interface for Remix environment in Storybook stories.
+ *
+ * @template TLoader - Type of the loader data returned by the route
+ *
+ * @example
+ * ```tsx
+ * parameters: {
+ *   remix: {
+ *     initialPath: "/game/123",
+ *     loaderData: { gameId: "123" },
+ *     routes: [
+ *       { path: "/game/:id", Component: GameView }
+ *     ],
+ *     userId: "user-123"
+ *   }
+ * }
+ * ```
+ */
+export interface RemixParameters<TLoader> {
+  remix: {
+    /** Initial URL path for the story */
+    initialPath: string;
+    /** Mock data that would be returned by the loader */
+    loaderData: TLoader;
+    /** Additional routes to register in the Remix environment */
+    routes?: Route[];
+    /** Mock user ID for authentication */
+    userId?: string;
+    /** Mock session ID */
+    sessionId?: string;
+    /** Mock page session ID */
+    pageSessionId?: string;
+  };
+}
 
-export function createGameAndSessionDecorator({
-  gameSnapshot = defaultGameSnapshot,
-  sessionSnapshot = defaultSessionSnapshot,
-  userId = "test-user-id",
-  gameOverrides = {} as GameSnapshotOverrides,
-} = {}) {
-  return function StoryDecorator(Story: React.ComponentType, context: StoryContext) {
-    // Create mock clients
-    const gameMockClient = createActorKitMockClient<GameMachine>({
-      initialSnapshot: {
-        ...gameSnapshot,
-        ...gameOverrides,
-        public: {
-          ...gameSnapshot.public,
-          ...gameOverrides.public,
-          hostId: gameOverrides.public?.hostId || gameSnapshot.public.hostId || userId,
+interface Route {
+  path: string;
+  Component: React.ComponentType<any>;
+}
+
+/**
+ * Storybook decorator that creates a mock Remix environment.
+ * Required for components that use Remix hooks or utilities.
+ *
+ * @template TLoader - Type of the loader data
+ *
+ * @example
+ * ```tsx
+ * // In your story file:
+ * const meta: Meta = {
+ *   decorators: [withRemix<LoaderData>()]
+ * };
+ *
+ * // In each story:
+ * export const Default: Story = {
+ *   parameters: {
+ *     remix: {
+ *       initialPath: "/",
+ *       loaderData: { someData: "value" }
+ *     }
+ *   }
+ * };
+ * ```
+ */
+export const withRemix = <TLoader extends Record<string, unknown>>() => {
+  return (Story: StoryFn, context: StoryContext) => {
+    const remixParams = context.parameters
+      ?.remix as RemixParameters<TLoader>["remix"];
+
+    if (!remixParams) {
+      throw new Error(
+        "Remix parameters are required. Add them to your story parameters."
+      );
+    }
+
+    const RemixStub = createRemixStub(
+      [
+        {
+          id: "root",
+          path: "/",
+          loader: () => remixParams.loaderData,
+          Component: Story,
         },
-        value: gameOverrides.value || gameSnapshot.value,
-      },
-    });
-
-    const sessionMockClient = createActorKitMockClient<SessionMachine>({
-      initialSnapshot: {
-        ...sessionSnapshot,
-        public: {
-          ...sessionSnapshot.public,
-          userId,
-        },
-      },
-    });
-
-    // Store clients in context for access in play function
-    context.parameters.clients = {
-      gameClient: gameMockClient,
-      sessionClient: sessionMockClient,
-    } satisfies DecoratorClients;
+        ...(remixParams.routes || []),
+      ],
+      {
+        env: {} as any,
+        userId: remixParams.userId || "test-user-id",
+        sessionId: remixParams.sessionId || "test-session-id",
+        pageSessionId: remixParams.pageSessionId || "test-page-session-id",
+      }
+    );
 
     return (
-      <SessionContext.ProviderFromClient client={sessionMockClient}>
-        <GameContext.ProviderFromClient client={gameMockClient}>
-          <Story />
-        </GameContext.ProviderFromClient>
-      </SessionContext.ProviderFromClient>
+      <RemixStub
+        initialEntries={[remixParams.initialPath]}
+        hydrationData={{
+          loaderData: {
+            root: remixParams.loaderData,
+          },
+        }}
+      />
     );
   };
-} 
+};
+
+/**
+ * Configuration interface for actor-kit state machines in stories.
+ * Allows configuring multiple actors with different initial states.
+ *
+ * @template TMachine - Type of the actor-kit state machine
+ *
+ * @example
+ * ```tsx
+ * parameters: {
+ *   actorKit: {
+ *     session: {
+ *       "session-123": {
+ *         public: { userId: "123" },
+ *         private: {},
+ *         value: "ready"
+ *       }
+ *     }
+ *   }
+ * }
+ * ```
+ */
+export interface ActorKitParameters<TMachine extends AnyActorKitStateMachine> {
+  actorKit: {
+    [K: string]: {
+      [actorId: string]: CallerSnapshotFrom<TMachine>;
+    };
+  };
+}
+
+/**
+ * Storybook decorator that sets up actor-kit state machines.
+ *
+ * Use this for static stories where you don't need to manipulate the actor state.
+ * For interactive stories that need client access, set up the client manually
+ * in the story instead.
+ *
+ * @template TMachine - Type of the actor-kit state machine
+ *
+ * @example
+ * ```tsx
+ * // For static stories:
+ * const meta: Meta = {
+ *   decorators: [
+ *     withActorKit<SessionMachine>({
+ *       actorType: "session",
+ *       context: SessionContext,
+ *       defaultSnapshot: defaultState
+ *     })
+ *   ]
+ * };
+ *
+ * // For interactive stories, don't use this decorator:
+ * export const Interactive: Story = {
+ *   decorators: [(Story) => {
+ *     const client = createActorKitMockClient({...});
+ *     return (
+ *       <Context.ProviderFromClient client={client}>
+ *         <Story />
+ *       </Context.ProviderFromClient>
+ *     );
+ *   }],
+ *   play: async ({ mount }) => {
+ *     const client = createActorKitMockClient({...});
+ *     const canvas = await mount(
+ *       <Context.ProviderFromClient client={client}>
+ *         <Component />
+ *       </Context.ProviderFromClient>
+ *     );
+ *     // Now you can manipulate client state...
+ *   }
+ * };
+ * ```
+ */
+export const withActorKit = <TMachine extends AnyActorKitStateMachine>({
+  actorType,
+  context,
+}: {
+  actorType: string;
+  context: ReturnType<typeof createActorKitContext<TMachine>>;
+}) => {
+  return (Story: StoryFn, storyContext: StoryContext): React.ReactElement => {
+    const actorKitParams = storyContext.parameters?.actorKit as
+      | ActorKitParameters<TMachine>["actorKit"]
+      | undefined;
+
+    // If no params provided, just render the story without any providers
+    if (!actorKitParams?.[actorType]) {
+      return <Story />;
+    }
+
+    // Create nested providers for each actor ID
+    const actorSnapshots = actorKitParams[actorType];
+
+    // Recursively nest providers
+    const createNestedProviders = (
+      actorIds: string[],
+      index: number,
+      children: React.ReactNode
+    ): React.ReactElement => {
+      if (index >= actorIds.length) {
+        return children as React.ReactElement;
+      }
+
+      const actorId = actorIds[index];
+      const snapshot = actorSnapshots[actorId];
+      const client = createActorKitMockClient<TMachine>({
+        initialSnapshot: snapshot,
+      });
+
+      return (
+        <context.ProviderFromClient client={client}>
+          {createNestedProviders(actorIds, index + 1, children)}
+        </context.ProviderFromClient>
+      );
+    };
+
+    return createNestedProviders(Object.keys(actorSnapshots), 0, <Story />);
+  };
+};
+
+/**
+ * Helper type for stories that use actor-kit state machines.
+ * Combines the story type with actor-kit parameters.
+ *
+ * @template TMachine - Type of the actor-kit state machine
+ */
+export type StoryWithActorKit<TMachine extends AnyActorKitStateMachine> = {
+  parameters: ActorKitParameters<TMachine>;
+};

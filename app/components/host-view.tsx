@@ -7,7 +7,7 @@ import { SessionContext } from "~/session.context";
 export const HostView = () => {
   const gameState = GameContext.useSelector((state) => state);
   const sessionState = SessionContext.useSelector((state) => state.public);
-  const { gameStatus, currentQuestion, buzzerQueue, players, hostId } = gameState.public;
+  const { gameStatus, currentQuestion, buzzerQueue, players, hostId, id } = gameState.public;
   const send = GameContext.useSend();
 
   if (sessionState.userId !== hostId) {
@@ -24,6 +24,40 @@ export const HostView = () => {
           <p className="text-white/70">
             Only the host can access these controls.
           </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  if (!id) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 relative">
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+              animate={{
+                rotate: [0, 360],
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 20,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+          </div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 text-center"
+        >
+          <h1 className="text-2xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+            Generating Game Code...
+          </h1>
+          <Loader2 className="w-12 h-12 animate-spin mx-auto text-indigo-400" role="status" />
         </motion.div>
       </div>
     );
@@ -245,6 +279,9 @@ const QuestionControls = ({
     send({ type: "VALIDATE_ANSWER", playerId, correct });
   };
 
+  // Create a sorted copy of the players array
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+
   return (
     <div className="min-h-screen flex flex-col items-center p-4 relative">
       {/* Background Animation */}
@@ -373,17 +410,15 @@ const QuestionControls = ({
             <Crown className="w-5 h-5" /> Players
           </h2>
           <div className="space-y-2">
-            {players
-              .sort((a, b) => b.score - a.score)
-              .map((player) => (
-                <div
-                  key={player.id}
-                  className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-gray-900/30 border border-gray-700/30"
-                >
-                  <span className="font-medium">{player.name}</span>
-                  <span className="text-indigo-400 font-bold">{player.score}</span>
-                </div>
-              ))}
+            {sortedPlayers.map((player) => (
+              <div
+                key={player.id}
+                className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-gray-900/30 border border-gray-700/30"
+              >
+                <span className="font-medium">{player.name}</span>
+                <span className="text-indigo-400 font-bold">{player.score}</span>
+              </div>
+            ))}
           </div>
         </motion.div>
 

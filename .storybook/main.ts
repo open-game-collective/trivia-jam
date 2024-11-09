@@ -9,6 +9,7 @@ const config: StorybookConfig = {
     "@storybook/addon-essentials",
     "@storybook/addon-interactions",
     "@storybook/addon-styling",
+    "../addons/actor-kit-panel/preset.ts"
   ],
   framework: {
     name: "@storybook/react-vite",

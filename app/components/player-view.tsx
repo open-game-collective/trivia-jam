@@ -6,7 +6,7 @@ import { useState } from "react";
 
 export const PlayerView = () => {
   const gameState = GameContext.useSelector((state) => state);
-  const { gameStatus, currentQuestion, buzzerQueue, players, winner } = gameState.public;
+  const { gameStatus, currentQuestion, buzzerQueue, players, winner, gameCode } = gameState.public;
   const userId = SessionContext.useSelector((state) => state.public.userId);
   const send = GameContext.useSend();
 
@@ -14,6 +14,42 @@ export const PlayerView = () => {
   const isFirstInQueue = buzzerQueue[0] === userId;
   const playerScore = players.find(p => p.id === userId)?.score || 0;
   const player = players.find(p => p.id === userId);
+
+  // Show loading spinner if game code isn't available yet
+  if (!gameCode) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 relative">
+        {/* Background Animation */}
+        <div className="absolute inset-0 overflow-hidden">
+          <div className="absolute inset-0 opacity-10">
+            <motion.div
+              className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+              animate={{
+                rotate: [0, 360],
+                scale: [1, 1.2, 1],
+              }}
+              transition={{
+                duration: 20,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            />
+          </div>
+        </div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 text-center"
+        >
+          <h1 className="text-2xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+            Generating Game Code...
+          </h1>
+          <Loader2 className="w-12 h-12 animate-spin mx-auto text-indigo-400" />
+        </motion.div>
+      </div>
+    );
+  }
 
   if (!player) {
     return (
