@@ -14,10 +14,12 @@ jobs:
       
       - name: Install dependencies
         run: |
+          rm -rf node_modules package-lock.json
           npm install
+          npm install @rollup/rollup-linux-x64-gnu @rollup/rollup-linux-x64-musl --save-optional
           npm install @swc/core-linux-x64-gnu @swc/core-linux-x64-musl --save-optional
           npm install @esbuild/linux-x64 --save-optional
-          npm rebuild @swc/core esbuild
+          npm rebuild rollup @swc/core esbuild
       
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
@@ -27,8 +29,8 @@ jobs:
           DEBUG_PRINT_LIMIT: 10000
           NODE_ENV: production
         run: |
-          # Build Storybook
-          npm run build-storybook --quiet
+          # Build Storybook with explicit Rollup path
+          ROLLUP_NATIVE_PATH="$(pwd)/node_modules/@rollup/rollup-linux-x64-gnu/rollup.linux-x64-gnu.node" npm run build-storybook --quiet
           
           # Start server and run tests with increased timeout and reduced workers
           npx concurrently -k -s first -n "SB,TEST" -c "magenta,blue" \
