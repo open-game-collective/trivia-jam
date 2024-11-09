@@ -14,9 +14,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: |
-          npm cache clean --force
-          npm ci
+        run: npm ci
       
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
