@@ -189,6 +189,32 @@ export const NameEntry: Story = {
       },
     },
   },
+};
+
+export const NameEntryInteraction: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "new-player",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "lobby",
+            players: [],
+          },
+        },
+      },
+    },
+  },
   play: async ({ canvasElement, mount, step }) => {
     const canvas = within(canvasElement);
     
@@ -274,6 +300,169 @@ export const PlayerAnsweredCorrectly: Story = {
         },
       },
     },
+  },
+};
+
+export const AlreadyBuzzedIn: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "active",
+            currentQuestion: {
+              text: "What is the capital of France?",
+              isVisible: true,
+            },
+            buzzerQueue: [], // Empty queue after being removed
+            previousAnswers: [
+              {
+                playerId: "player-456",
+                playerName: "Test Player",
+                correct: false,
+              }
+            ],
+            lastAnswerResult: {
+              playerId: "player-456",
+              playerName: "Test Player",
+              correct: false,
+            },
+            players: [
+              { id: "player-456", name: "Test Player", score: 0 },
+              { id: "player-789", name: "Other Player", score: 0 },
+            ],
+          },
+          value: { active: "questionActive" },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement, mount, step }) => {
+    const canvas = within(canvasElement);
+    
+    await step('Mount component with initial state', async () => {
+      await mount(<PlayerView />);
+    });
+
+    await step('Verify question is visible', async () => {
+      // The question should still be visible
+      const question = await canvas.findByText("What is the capital of France?");
+      expect(question).toBeInTheDocument();
+    });
+
+    await step('Verify buzz button is not present after incorrect answer', async () => {
+      // The buzz button should not be present since player already answered incorrectly
+      const buzzButton = canvas.queryByRole('button', { name: /buzz/i });
+      expect(buzzButton).not.toBeInTheDocument();
+    });
+
+    await step('Verify incorrect answer feedback', async () => {
+      // Should show the incorrect answer feedback
+      const feedbackMessage = await canvas.findByText(/sorry, that's incorrect/i);
+      expect(feedbackMessage).toBeInTheDocument();
+    });
+  },
+};
+
+export const QuestionWithBuzzer: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "active",
+            currentQuestion: {
+              text: "What is the capital of France?",
+              isVisible: true,
+            },
+            buzzerQueue: [], // Empty queue, player hasn't buzzed yet
+            players: [
+              { id: "player-456", name: "Test Player", score: 0 },
+              { id: "player-789", name: "Other Player", score: 0 },
+            ],
+          },
+          value: { active: "questionActive" },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement, mount, step }) => {
+    const canvas = within(canvasElement);
+    
+    const gameClient = createActorKitMockClient<GameMachine>({
+      initialSnapshot: {
+        ...defaultGameSnapshot,
+        public: {
+          ...defaultGameSnapshot.public,
+          gameStatus: "active",
+          currentQuestion: {
+            text: "What is the capital of France?",
+            isVisible: true,
+          },
+          buzzerQueue: [],
+          players: [
+            { id: "player-456", name: "Test Player", score: 0 },
+            { id: "player-789", name: "Other Player", score: 0 },
+          ],
+        },
+        value: { active: "questionActive" },
+      },
+    });
+
+    await step('Mount component with initial state', async () => {
+      await mount(
+        <GameContext.ProviderFromClient client={gameClient}>
+          <PlayerView />
+        </GameContext.ProviderFromClient>
+      );
+    });
+
+    await step('Verify question is visible', async () => {
+      const question = await canvas.findByText("What is the capital of France?");
+      expect(question).toBeInTheDocument();
+    });
+
+    await step('Verify buzz button is present', async () => {
+      const buzzButton = await canvas.findByRole('button', { name: /buzz/i });
+      expect(buzzButton).toBeInTheDocument();
+    });
+
+    await step('Click buzz button', async () => {
+      const buzzButton = canvas.getByRole('button', { name: /buzz/i });
+      await userEvent.click(buzzButton);
+
+      // Simulate backend adding player to buzzer queue
+      gameClient.produce((draft) => {
+        draft.public.buzzerQueue = ["player-456"];
+      });
+    });
+
+    await step('Verify player is first in queue', async () => {
+      const turnMessage = await canvas.findByText(/your turn to answer/i);
+      expect(turnMessage).toBeInTheDocument();
+    });
   },
 };
 

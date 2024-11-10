@@ -1,5 +1,6 @@
 import { ActorKitStateMachine } from "actor-kit";
-import { and, assign, setup } from "xstate";
+import { produce } from "immer";
+import { and, assign, DoneActorEvent, fromPromise, setup } from "xstate";
 import type { GameEvent, GameInput, GameServerContext } from "./game.types";
 
 export const gameMachine = setup({
@@ -17,7 +18,23 @@ export const gameMachine = setup({
     isQuestionVisible: ({ context }) =>
       context.public.currentQuestion?.isVisible ?? false,
   },
+  actors: {
+    generateGameCode: fromPromise(async () => {
+      const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let code = "";
+      for (let i = 0; i < 6; i++) {
+        code += characters[Math.floor(Math.random() * characters.length)];
+      }
+      return code;
+    }),
+  },
   actions: {
+    assignGameCode: assign({
+      public: ({ context }, params: { gameCode: string }) =>
+        produce(context.public, (draft) => {
+          draft.gameCode = params.gameCode;
+        }),
+    }),
     addPlayer: assign({
       public: ({ context, event }) => {
         if (event.type !== "JOIN_GAME") return context.public;
@@ -63,8 +80,10 @@ export const gameMachine = setup({
     validateAnswer: assign({
       public: ({ context, event }) => {
         if (event.type !== "VALIDATE_ANSWER") return context.public;
-        const player = context.public.players.find(p => p.id === event.playerId);
-        
+        const player = context.public.players.find(
+          (p) => p.id === event.playerId
+        );
+
         return {
           ...context.public,
           players: context.public.players.map((player) =>
@@ -76,11 +95,13 @@ export const gameMachine = setup({
           currentQuestion: event.correct
             ? null
             : context.public.currentQuestion,
-          lastAnswerResult: player ? {
-            playerId: player.id,
-            playerName: player.name,
-            correct: event.correct
-          } : null,
+          lastAnswerResult: player
+            ? {
+                playerId: player.id,
+                playerName: player.name,
+                correct: event.correct,
+              }
+            : null,
         };
       },
     }),
@@ -99,6 +120,20 @@ export const gameMachine = setup({
         ).id,
       }),
     }),
+    assignGeneratedGameCode: assign({
+      public: ({ context, event }: { 
+        context: GameServerContext; 
+        event: GameEvent | DoneActorEvent<string, "generateGameCode">
+      }) => {
+        if (event.type === "xstate.done.actor.generateGameCode") {
+          return {
+            ...context.public,
+            gameCode: event.output
+          };
+        }
+        return context.public;
+      }
+    }),
   },
 }).createMachine({
   id: "triviaGame",
@@ -107,6 +142,7 @@ export const gameMachine = setup({
       id: input.id,
       hostId: input.caller.id,
       hostName: input.hostName,
+      gameCode: undefined,
       players: [],
       currentQuestion: null,
       buzzerQueue: [],
@@ -130,6 +166,25 @@ export const gameMachine = setup({
           guard: "isHost",
           target: "active.questionPrep",
           actions: "startGame",
+        },
+      },
+      type: "parallel",
+      states: {
+        GameCode: {
+          initial: "Generating",
+          states: {
+            Generating: {
+              invoke: {
+                id: "generateGameCode",
+                src: "generateGameCode",
+                onDone: {
+                  target: "Created",
+                  actions: "assignGeneratedGameCode"
+                },
+              },
+            },
+            Created: {},
+          },
         },
       },
     },

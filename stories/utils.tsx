@@ -27,7 +27,7 @@ export const defaultGameSnapshot = {
     },
   },
   private: {},
-  value: "lobby",
+  value: { lobby: { GameCode: "Created" } },
 } satisfies CallerSnapshotFrom<GameMachine>;
 
 export const defaultSessionSnapshot = {

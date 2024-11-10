@@ -79,6 +79,7 @@ export const StartingGame: Story = {
               { id: "player-2", name: "Player 2", score: 0 },
             ],
           },
+          value: { lobby: { GameCode: "Created" } },
         },
       },
     },
@@ -97,6 +98,7 @@ export const StartingGame: Story = {
             { id: "player-2", name: "Player 2", score: 0 },
           ],
         },
+        value: { lobby: { GameCode: "Created" } },
       },
     });
 

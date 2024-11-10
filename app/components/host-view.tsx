@@ -122,8 +122,8 @@ const LobbyControls = ({
   const [isStarting, setIsStarting] = useState(false);
 
   const copyGameCode = async () => {
-    if (gameState.id) {
-      await navigator.clipboard.writeText(gameState.id);
+    if (gameState.gameCode) {
+      await navigator.clipboard.writeText(gameState.gameCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
@@ -174,7 +174,7 @@ const LobbyControls = ({
             <div className="absolute inset-0 bg-indigo-500/20 rounded-xl blur-xl group-hover:bg-indigo-500/30 transition-all" />
             <div className="relative bg-gray-800/50 backdrop-blur-sm border border-indigo-500/30 rounded-xl p-6 flex items-center justify-center gap-4">
               <span className="text-4xl font-mono font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-                {gameState.id}
+                {gameState.gameCode}
               </span>
               <AnimatePresence mode="wait">
                 {copied ? (
