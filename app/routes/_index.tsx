@@ -17,6 +17,8 @@ import { ArrowRight, Dice1, HelpCircle, Plus } from "lucide-react";
 import { atom } from "nanostores";
 import { useState } from "react";
 import { SessionContext } from "~/session.context";
+import { getDeviceType } from "~/utils/deviceType";
+import { QRCodeSVG } from "qrcode.react";
 
 export const meta: MetaFunction = () => {
   return [
@@ -28,16 +30,16 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-export const loader = async (args: LoaderFunctionArgs) => {
+export const loader = async ({ request }: LoaderFunctionArgs) => {
   const gameId = crypto.randomUUID();
-  return json({ gameId });
+  const deviceType = getDeviceType(request.headers.get("user-agent"));
+  return json({ gameId, deviceType });
 };
 
-export type LoaderData = Awaited<
-  ReturnType<typeof loader>
-> extends TypedResponse<infer T>
-  ? T
-  : never;
+export type LoaderData = {
+  gameId: string;
+  deviceType: string;
+};
 
 export default function Index() {
   const { gameId } = useLoaderData<LoaderData>();
@@ -72,6 +74,8 @@ function HomePageContent({
   $showHelp,
   $isJoining,
 }: HomePageContentProps) {
+  const { deviceType } = useLoaderData<LoaderData>();
+  const isMobile = deviceType === "mobile";
   const showHelp = useStore($showHelp);
   const isJoining = useStore($isJoining);
   const gameCode = useStore($gameCode);
@@ -183,69 +187,109 @@ function HomePageContent({
           </h1>
         </div>
 
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg p-6 mb-6 border border-white/20">
-          <h2 className="text-2xl font-semibold text-indigo-300 mb-4">
-            Join a Game
-          </h2>
-          <form onSubmit={handleJoinGame}>
-            <div className="mb-4">
-              <label
-                htmlFor="gameCode"
-                className="block text-sm font-medium text-white/80 mb-1"
-              >
-                Game Code
-              </label>
-              <input
-                type="text"
-                id="gameCode"
-                aria-label="Game Code"
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                value={gameCode}
-                onChange={(e) => $gameCode.set(e.target.value.toUpperCase())}
-                placeholder="Enter game code"
-                maxLength={6}
-                disabled={isJoining}
-              />
+        {isMobile ? (
+          // Mobile view - show game controls
+          <>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg p-6 mb-6 border border-white/20">
+              <h2 className="text-2xl font-semibold text-indigo-300 mb-4">
+                Join a Game
+              </h2>
+              <form onSubmit={handleJoinGame}>
+                <div className="mb-4">
+                  <label
+                    htmlFor="gameCode"
+                    className="block text-sm font-medium text-white/80 mb-1"
+                  >
+                    Game Code
+                  </label>
+                  <input
+                    type="text"
+                    id="gameCode"
+                    aria-label="Game Code"
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={gameCode}
+                    onChange={(e) => $gameCode.set(e.target.value.toUpperCase())}
+                    placeholder="Enter game code"
+                    maxLength={6}
+                    disabled={isJoining}
+                  />
+                </div>
+                <motion.button
+                  type="submit"
+                  whileHover={{ scale: isJoining ? 1 : 1.02 }}
+                  whileTap={{ scale: isJoining ? 1 : 0.98 }}
+                  className={`w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center ${
+                    isJoining ? "opacity-75 cursor-not-allowed" : ""
+                  }`}
+                  disabled={isJoining}
+                >
+                  {isJoining ? (
+                    <>
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                      Joining...
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="mr-2" size={20} />
+                      Join Game
+                    </>
+                  )}
+                </motion.button>
+              </form>
             </div>
-            <motion.button
-              type="submit"
-              whileHover={{ scale: isJoining ? 1 : 1.02 }}
-              whileTap={{ scale: isJoining ? 1 : 0.98 }}
-              className={`w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center ${
-                isJoining ? "opacity-75 cursor-not-allowed" : ""
-              }`}
-              disabled={isJoining}
-            >
-              {isJoining ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                  Joining...
-                </>
-              ) : (
-                <>
-                  <ArrowRight className="mr-2" size={20} />
-                  Join Game
-                </>
-              )}
-            </motion.button>
-          </form>
-        </div>
 
-        <div className="bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20">
-          <h2 className="text-2xl font-semibold text-indigo-300 mb-4">
-            Start a New Game
-          </h2>
-          <a href={`/games/${newGameId}`}>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center"
-            >
-              <Plus className="mr-2" size={20} />
-              Create New Game
-            </motion.button>
-          </a>
-        </div>
+            <div className="bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20">
+              <h2 className="text-2xl font-semibold text-indigo-300 mb-4">
+                Start a New Game
+              </h2>
+              <a href={`/games/${newGameId}`}>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center"
+                >
+                  <Plus className="mr-2" size={20} />
+                  Create New Game
+                </motion.button>
+              </a>
+            </div>
+          </>
+        ) : (
+          // Desktop view - show TV mode message
+          <div className="bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20 text-center">
+            <h2 className="text-2xl font-semibold text-indigo-300 mb-4">
+              TV/Display Mode
+            </h2>
+            <p className="text-white/80 mb-4">
+              This device will act as the game display. To play or host a game, please use a mobile device.
+            </p>
+            
+            <div className="flex flex-col items-center justify-center space-y-6 p-4">
+              <div className="bg-white p-4 rounded-xl">
+                <QRCodeSVG 
+                  value="https://triviajam.tv" 
+                  size={200}
+                  level="H"
+                  includeMargin
+                />
+              </div>
+              <p className="text-white/80 text-sm">
+                Scan this QR code to open Trivia Jam on your phone
+              </p>
+              <div className="flex items-center justify-center space-x-2 text-white/60 text-sm">
+                <span>or visit</span>
+                <a 
+                  href="https://triviajam.tv" 
+                  className="text-indigo-400 hover:text-indigo-300 underline"
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                >
+                  triviajam.tv
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         <motion.div
           initial={{ opacity: 0 }}
