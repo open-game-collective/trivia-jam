@@ -1,13 +1,31 @@
-import { GameContext } from "~/game.context";
-import { motion, AnimatePresence } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Bell,
+  Check,
+  ChevronRight,
+  Copy,
+  Crown,
+  Eye,
+  Loader2,
+  Trophy,
+  Users,
+  X,
+} from "lucide-react";
 import { useState } from "react";
-import { Bell, Crown, Users, Eye, EyeOff, Check, X, ChevronRight, Loader2, Trophy, Copy } from "lucide-react";
+import { GameContext } from "~/game.context";
 import { SessionContext } from "~/session.context";
 
 export const HostView = () => {
   const gameState = GameContext.useSelector((state) => state);
   const sessionState = SessionContext.useSelector((state) => state.public);
-  const { gameStatus, currentQuestion, buzzerQueue, players, hostId, id } = gameState.public;
+  const {
+    gameStatus,
+    currentQuestion,
+    buzzerQueue,
+    players,
+    hostId,
+    gameCode,
+  } = gameState.public;
   const send = GameContext.useSend();
 
   if (sessionState.userId !== hostId) {
@@ -29,7 +47,7 @@ export const HostView = () => {
     );
   }
 
-  if (!id) {
+  if (!gameCode) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 relative">
         <div className="absolute inset-0 overflow-hidden">
@@ -57,7 +75,10 @@ export const HostView = () => {
           <h1 className="text-2xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
             Generating Game Code...
           </h1>
-          <Loader2 className="w-12 h-12 animate-spin mx-auto text-indigo-400" role="status" />
+          <Loader2
+            className="w-12 h-12 animate-spin mx-auto text-indigo-400"
+            role="status"
+          />
         </motion.div>
       </div>
     );
@@ -67,14 +88,14 @@ export const HostView = () => {
     <div className="min-h-screen bg-gray-900 text-white">
       <AnimatePresence mode="wait">
         {gameStatus === "lobby" && (
-          <LobbyControls 
+          <LobbyControls
             players={players}
             onStartGame={() => send({ type: "START_GAME" })}
           />
         )}
 
         {gameStatus === "active" && (
-          <QuestionControls 
+          <QuestionControls
             currentQuestion={currentQuestion}
             buzzerQueue={buzzerQueue}
             players={players}
@@ -82,20 +103,16 @@ export const HostView = () => {
           />
         )}
 
-        {gameStatus === "finished" && (
-          <GameFinishedDisplay 
-            players={players}
-          />
-        )}
+        {gameStatus === "finished" && <GameFinishedDisplay players={players} />}
       </AnimatePresence>
     </div>
   );
 };
 
-const LobbyControls = ({ 
+const LobbyControls = ({
   players,
-  onStartGame 
-}: { 
+  onStartGame,
+}: {
   players: Array<{ id: string; name: string; score: number }>;
   onStartGame: () => void;
 }) => {
@@ -145,7 +162,9 @@ const LobbyControls = ({
       >
         {/* Game Code Section */}
         <div className="mb-8">
-          <h2 className="text-xl font-bold text-indigo-300 text-center mb-4">Game Code</h2>
+          <h2 className="text-xl font-bold text-indigo-300 text-center mb-4">
+            Game Code
+          </h2>
           <motion.button
             onClick={copyGameCode}
             className="w-full relative group"
@@ -219,20 +238,24 @@ const LobbyControls = ({
             onClick={handleStartGame}
             disabled={!hasEnoughPlayers || isStarting}
             className={`w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
-              ${hasEnoughPlayers && !isStarting
-                ? 'hover:from-indigo-500 hover:to-purple-500 opacity-100' 
-                : 'opacity-50 cursor-not-allowed'
+              ${
+                hasEnoughPlayers && !isStarting
+                  ? "hover:from-indigo-500 hover:to-purple-500 opacity-100"
+                  : "opacity-50 cursor-not-allowed"
               }`}
             whileHover={hasEnoughPlayers && !isStarting ? { scale: 1.02 } : {}}
             whileTap={hasEnoughPlayers && !isStarting ? { scale: 0.98 } : {}}
           >
             {isStarting ? (
               <>
-                <Loader2 className="w-5 h-5 animate-spin" data-testid="loading-spinner" />
+                <Loader2
+                  className="w-5 h-5 animate-spin"
+                  data-testid="loading-spinner"
+                />
                 Starting Game...
               </>
             ) : (
-              'Start Game'
+              "Start Game"
             )}
           </motion.button>
 
@@ -251,12 +274,12 @@ const LobbyControls = ({
   );
 };
 
-const QuestionControls = ({ 
+const QuestionControls = ({
   currentQuestion,
   buzzerQueue,
   players,
-  send
-}: { 
+  send,
+}: {
   currentQuestion: { text: string; isVisible: boolean } | null;
   buzzerQueue: string[];
   players: Array<{ id: string; name: string; score: number }>;
@@ -311,8 +334,12 @@ const QuestionControls = ({
             animate={{ opacity: 1, y: 0 }}
             className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
           >
-            <h2 className="text-xl font-bold mb-2 text-indigo-300">Current Question</h2>
-            <p className="text-lg sm:text-xl text-white/90 mb-4">{currentQuestion.text}</p>
+            <h2 className="text-xl font-bold mb-2 text-indigo-300">
+              Current Question
+            </h2>
+            <p className="text-lg sm:text-xl text-white/90 mb-4">
+              {currentQuestion.text}
+            </p>
             {!currentQuestion.isVisible && (
               <motion.button
                 onClick={handleShowQuestion}
@@ -334,7 +361,10 @@ const QuestionControls = ({
             animate={{ opacity: 1, y: 0 }}
             className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
           >
-            <label htmlFor="question-input" className="text-xl font-bold mb-2 text-indigo-300 block">
+            <label
+              htmlFor="question-input"
+              className="text-xl font-bold mb-2 text-indigo-300 block"
+            >
               Enter Question
             </label>
             <textarea
@@ -369,12 +399,15 @@ const QuestionControls = ({
               <Bell className="w-5 h-5" /> Current Answer
             </h2>
             {buzzerQueue.map((playerId, index) => {
-              const player = players.find(p => p.id === playerId);
+              const player = players.find((p) => p.id === playerId);
               if (index === 0) {
                 return (
                   <div key={playerId} className="space-y-3">
                     <div className="text-lg sm:text-xl text-white/90">
-                      <span className="font-bold text-indigo-400">{player?.name}</span> is answering...
+                      <span className="font-bold text-indigo-400">
+                        {player?.name}
+                      </span>{" "}
+                      is answering...
                     </div>
                     <div className="grid grid-cols-2 gap-2 sm:gap-3">
                       <motion.button
@@ -422,7 +455,9 @@ const QuestionControls = ({
                 className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-gray-900/30 border border-gray-700/30"
               >
                 <span className="font-medium">{player.name}</span>
-                <span className="text-indigo-400 font-bold">{player.score}</span>
+                <span className="text-indigo-400 font-bold">
+                  {player.score}
+                </span>
               </div>
             ))}
           </div>
@@ -442,10 +477,10 @@ const QuestionControls = ({
   );
 };
 
-const GameFinishedDisplay = ({ 
-  players 
-}: { 
-  players: Array<{ id: string; name: string; score: number }> 
+const GameFinishedDisplay = ({
+  players,
+}: {
+  players: Array<{ id: string; name: string; score: number }>;
 }) => (
   <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
     {/* Background Animation */}
@@ -489,15 +524,19 @@ const GameFinishedDisplay = ({
               transition={{ delay: index * 0.1 }}
               className={`flex justify-between items-center p-4 rounded-xl border ${
                 index === 0
-                  ? 'bg-yellow-500/10 border-yellow-500/30'
-                  : 'bg-gray-800/30 border-gray-700/30'
+                  ? "bg-yellow-500/10 border-yellow-500/30"
+                  : "bg-gray-800/30 border-gray-700/30"
               }`}
             >
               <div className="flex items-center gap-3">
-                <span className="text-2xl font-bold text-indigo-400">#{index + 1}</span>
+                <span className="text-2xl font-bold text-indigo-400">
+                  #{index + 1}
+                </span>
                 <span className="font-medium">{player.name}</span>
               </div>
-              <span className="text-xl font-bold text-indigo-400">{player.score}</span>
+              <span className="text-xl font-bold text-indigo-400">
+                {player.score}
+              </span>
             </motion.div>
           ))}
       </div>

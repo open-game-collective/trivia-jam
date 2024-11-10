@@ -523,4 +523,50 @@ export const QuestionInput: Story = {
       },
     },
   },
+};
+
+/**
+ * Story showing the loading state when game code hasn't been set yet
+ */
+export const LoadingGameCode: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            hostId: "host-123",
+            id: undefined, // Set game code to undefined to trigger loading state
+            gameCode: undefined,
+            players: [],
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    
+    // Verify loading message is shown
+    const loadingMessage = await canvas.findByText(/generating game code/i);
+    expect(loadingMessage).toBeInTheDocument();
+    
+    // Verify loading spinner is present
+    const loadingSpinner = canvas.getByRole("status");
+    expect(loadingSpinner).toBeInTheDocument();
+    
+    // Verify game controls are not shown
+    const startButton = canvas.queryByRole('button', { name: /start game/i });
+    expect(startButton).not.toBeInTheDocument();
+  },
 }; 

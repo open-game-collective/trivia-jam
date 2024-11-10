@@ -77,7 +77,7 @@ export const DesktopView: Story = {
   parameters: {
     remix: {
       initialPath: "/",
-      loaderData: { gameId: TEST_GAME_ID, deviceType: "desktop" },
+      loaderData: { gameId: TEST_GAME_ID, deviceType: "desktop", host: "dev.triviajam.tv" },
       userId: "user-123",
       sessionId: "session-123",
       pageSessionId: "page-session-123",
@@ -97,7 +97,7 @@ export const MobileView: Story = {
   parameters: {
     remix: {
       initialPath: "/",
-      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile" },
+      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile", host: "dev.triviajam.tv" },
       userId: "user-123",
       sessionId: "session-123",
       pageSessionId: "page-session-123",
@@ -117,7 +117,7 @@ export const MobileWithGameCode: Story = {
   parameters: {
     remix: {
       initialPath: "/?code=ABC123",
-      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile" },
+      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile", host: "dev.triviajam.tv" },
       userId: "user-123",
       sessionId: "session-123",
       pageSessionId: "page-session-123",
@@ -155,7 +155,7 @@ export const JoinGameInteraction: Story = {
   parameters: {
     remix: {
       initialPath: "/?code=ABC123",
-      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile" },
+      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile", host: "dev.triviajam.tv" },
       userId: "user-123",
       sessionId: "session-123",
       pageSessionId: "page-session-123",

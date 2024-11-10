@@ -44,7 +44,6 @@ export default function GameRoute() {
     useLoaderData<typeof loader>();
   const hostId = payload.snapshot.public.hostId;
   const userId = SessionContext.useSelector((state) => state.public.userId);
-  console.log({ hostId, userId });
 
   return (
     <GameProvider

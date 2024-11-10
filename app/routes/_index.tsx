@@ -1,11 +1,7 @@
 import { catchError } from "@jonmumm/utils/catchError";
 import { useStore } from "@nanostores/react";
 
-import type {
-  LoaderFunctionArgs,
-  MetaFunction,
-  TypedResponse,
-} from "@remix-run/cloudflare";
+import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/cloudflare";
 import {
   json,
   useLoaderData,
@@ -15,10 +11,10 @@ import {
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, Dice1, HelpCircle, Plus } from "lucide-react";
 import { atom } from "nanostores";
+import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { SessionContext } from "~/session.context";
 import { getDeviceType } from "~/utils/deviceType";
-import { QRCodeSVG } from "qrcode.react";
 
 export const meta: MetaFunction = () => {
   return [
@@ -30,15 +26,22 @@ export const meta: MetaFunction = () => {
   ];
 };
 
-export const loader = async ({ request }: LoaderFunctionArgs) => {
+// const fetchTodoActor = createActorFetch<TodoMachine>({
+//   actorType: "todo",
+//   host: context.env.ACTOR_KIT_HOST,
+// });
+
+export async function loader({ params, context, request }: LoaderFunctionArgs) {
+  const host = context.env.ACTOR_KIT_HOST;
   const gameId = crypto.randomUUID();
   const deviceType = getDeviceType(request.headers.get("user-agent"));
-  return json({ gameId, deviceType });
-};
+  return json({ gameId, deviceType, host });
+}
 
 export type LoaderData = {
   gameId: string;
   deviceType: string;
+  host: string;
 };
 
 export default function Index() {
@@ -74,7 +77,7 @@ function HomePageContent({
   $showHelp,
   $isJoining,
 }: HomePageContentProps) {
-  const { deviceType } = useLoaderData<LoaderData>();
+  const { deviceType, host } = useLoaderData<LoaderData>();
   const isMobile = deviceType === "mobile";
   const showHelp = useStore($showHelp);
   const isJoining = useStore($isJoining);
@@ -208,7 +211,9 @@ function HomePageContent({
                     aria-label="Game Code"
                     className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     value={gameCode}
-                    onChange={(e) => $gameCode.set(e.target.value.toUpperCase())}
+                    onChange={(e) =>
+                      $gameCode.set(e.target.value.toUpperCase())
+                    }
                     placeholder="Enter game code"
                     maxLength={6}
                     disabled={isJoining}
@@ -261,13 +266,14 @@ function HomePageContent({
               TV/Display Mode
             </h2>
             <p className="text-white/80 mb-4">
-              This device will act as the game display. To play or host a game, please use a mobile device.
+              This device will act as the game display. To play or host a game,
+              please use a mobile device.
             </p>
-            
+
             <div className="flex flex-col items-center justify-center space-y-6 p-4">
               <div className="bg-white p-4 rounded-xl">
-                <QRCodeSVG 
-                  value="https://triviajam.tv" 
+                <QRCodeSVG
+                  value={`https://${host}`}
                   size={200}
                   level="H"
                   includeMargin
@@ -278,10 +284,10 @@ function HomePageContent({
               </p>
               <div className="flex items-center justify-center space-x-2 text-white/60 text-sm">
                 <span>or visit</span>
-                <a 
-                  href="https://triviajam.tv" 
+                <a
+                  href={`https://${host}`}
                   className="text-indigo-400 hover:text-indigo-300 underline"
-                  target="_blank" 
+                  target="_blank"
                   rel="noopener noreferrer"
                 >
                   triviajam.tv
