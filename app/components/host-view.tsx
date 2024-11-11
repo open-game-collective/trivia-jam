@@ -11,7 +11,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { GameContext } from "~/game.context";
 import { SessionContext } from "~/session.context";
 
@@ -141,7 +141,14 @@ const PlayerSlot = ({
           )}
         </div>
         <div className="flex items-center">
-          <span className="text-indigo-400 font-bold">{player.score}</span>
+          <motion.span 
+            key={`score-${player.score}`}
+            initial={{ scale: 1.2, color: '#34D399' }}
+            animate={{ scale: 1, color: '#818CF8' }}
+            className="text-indigo-400 font-bold"
+          >
+            {player.score}
+          </motion.span>
         </div>
       </>
     ) : (
@@ -394,8 +401,18 @@ const QuestionControls = ({
   const send = GameContext.useSend();
   const gameState = GameContext.useSelector((state) => state.public);
 
-  // Create a copy before sorting
-  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  // Use local state for optimistic updates
+  const [localScoreUpdates, setLocalScoreUpdates] = useState<Record<string, number>>({});
+
+  // Memoize the players with local score updates
+  const sortedPlayers = useMemo(() => {
+    return [...players]
+      .map(player => ({
+        ...player,
+        score: player.score + (localScoreUpdates[player.id] || 0)
+      }))
+      .sort((a, b) => b.score - a.score);
+  }, [players, localScoreUpdates]);
 
   const handleSubmitQuestion = () => {
     if (questionText.trim()) {
@@ -410,7 +427,20 @@ const QuestionControls = ({
 
   const handleValidateAnswer = (playerId: string, correct: boolean) => {
     send({ type: "VALIDATE_ANSWER", playerId, correct });
+    
+    // Update local scores optimistically
+    if (correct) {
+      setLocalScoreUpdates(prev => ({
+        ...prev,
+        [playerId]: (prev[playerId] || 0) + 1
+      }));
+    }
   };
+
+  // Reset local updates when players prop changes
+  useEffect(() => {
+    setLocalScoreUpdates({});
+  }, [players]);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 relative">
