@@ -1,8 +1,10 @@
 import { GameContext } from "~/game.context";
 import { motion, AnimatePresence } from "framer-motion";
-import { Users, Crown, Bell, Eye, Trophy, Clock } from "lucide-react";
+import { Users, Crown, Bell, Eye, Trophy, Clock, X, QrCode } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
+import { useContext } from "react";
 
-export const SpectatorView = () => {
+export const SpectatorView = ({ host }: { host: string }) => {
   const gameState = GameContext.useSelector((state) => state);
   const { gameStatus, currentQuestion, buzzerQueue, players } = gameState.public;
 
@@ -12,6 +14,7 @@ export const SpectatorView = () => {
         {gameStatus === "lobby" && (
           <LobbyDisplay 
             players={players}
+            host={host}
           />
         )}
 
@@ -36,60 +39,104 @@ export const SpectatorView = () => {
 };
 
 const LobbyDisplay = ({ 
-  players 
+  players,
+  host 
 }: { 
   players: Array<{ id: string; name: string; score: number }>;
-}) => (
-  <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
-    {/* Background Animation */}
-    <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 opacity-10">
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
-          animate={{
-            rotate: [0, 360],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
+  host: string;
+}) => {
+  const maxPlayers = 10;
+  const { players: currentPlayers, hostId, id } = GameContext.useSelector((state) => ({
+    players: state.public.players,
+    hostId: state.public.hostId,
+    id: state.public.id
+  }));
+  
+  // Construct the game URL using the host prop
+  const gameUrl = `https://${host}/games/${id}`;
+  
+  // Create array of length maxPlayers filled with players or undefined
+  const slots = Array(maxPlayers).fill(undefined).map((_, i) => currentPlayers[i]);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+        </div>
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
+      >
+        <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+          Waiting for Game to Start
+        </h1>
+
+        {/* QR Code Section */}
+        <div className="mb-8 flex flex-col items-center" data-testid="qr-code-section">
+          <div className="bg-white p-4 rounded-xl mb-4">
+            <QRCodeSVG 
+              value={gameUrl} 
+              size={200} 
+              data-testid="game-qr-code"
+            />
+          </div>
+          <p className="text-center text-indigo-300/70" data-testid="qr-code-label">
+            Scan to join the game
+          </p>
+        </div>
+
+        <div className="space-y-3">
+          <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
+            <Users className="w-6 h-6" /> Players ({currentPlayers.length}/{maxPlayers})
+          </h2>
+          <AnimatePresence mode="popLayout">
+            {slots.map((player, index) => (
+              <motion.div
+                key={player?.id || `empty-${index}`}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className={`flex justify-between items-center p-4 rounded-xl border ${
+                  player ? 'bg-gray-800/30 border-gray-700/30' : 'bg-gray-800/10 border-gray-700/20'
+                }`}
+              >
+                {player ? (
+                  <div className="flex items-center gap-3">
+                    <span className="font-medium">{player.name}</span>
+                    {player.id === hostId && (
+                      <span className="px-2 py-1 text-xs font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
+                        Host
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="text-white/30 font-medium">Empty Slot</span>
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+      </motion.div>
     </div>
-
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
-    >
-      <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-        Waiting for Game to Start
-      </h1>
-
-      <div className="space-y-3">
-        <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
-          <Users className="w-6 h-6" /> Players Joined
-        </h2>
-        <AnimatePresence mode="popLayout">
-          {players.map((player, index) => (
-            <motion.div
-              key={player.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className="flex justify-between items-center p-4 rounded-xl border bg-gray-800/30 border-gray-700/30"
-            >
-              <span className="font-medium">{player.name}</span>
-            </motion.div>
-          ))}
-        </AnimatePresence>
-      </div>
-    </motion.div>
-  </div>
-);
+  );
+};
 
 const CelebrationDisplay = ({
   winner,
@@ -100,7 +147,8 @@ const CelebrationDisplay = ({
   players: Array<{ id: string; name: string; score: number }>;
   previousRank?: number;
 }) => {
-  const sortedPlayers = players.sort((a, b) => b.score - a.score);
+  // Create a copy before sorting
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   const currentRank = sortedPlayers.findIndex(p => p.id === winner.playerId) + 1;
   const player = players.find(p => p.id === winner.playerId);
   const rankImproved = previousRank && currentRank < previousRank;
@@ -184,17 +232,20 @@ const GameplayDisplay = ({
   buzzerQueue,
   players,
   lastAnswerResult,
-  previousAnswers,
+  previousAnswers = [],
 }: { 
-  currentQuestion: { text: string; isVisible: boolean } | null;
+  currentQuestion: { text: string } | null;
   buzzerQueue: string[];
   players: Array<{ id: string; name: string; score: number }>;
   lastAnswerResult?: { playerId: string; playerName: string; correct: boolean } | null;
   previousAnswers?: Array<{ playerId: string; playerName: string; correct: boolean }>;
 }) => {
+  // Create a sorted copy of players array
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+
   // If someone just got it right, show the celebration screen
   if (lastAnswerResult?.correct) {
-    const previousRank = players
+    const previousRank = [...players]
       .map(p => ({ ...p, score: p.id === lastAnswerResult.playerId ? p.score - 1 : p.score }))
       .sort((a, b) => b.score - a.score)
       .findIndex(p => p.id === lastAnswerResult.playerId) + 1;
@@ -211,26 +262,24 @@ const GameplayDisplay = ({
               </h2>
             </div>
             <div className="space-y-2">
-              {players
-                .sort((a, b) => b.score - a.score)
-                .map((player, index) => (
-                  <motion.div
-                    key={player.id}
-                    className={`flex items-center justify-between p-4 rounded-xl border ${
-                      player.id === lastAnswerResult.playerId
-                        ? 'bg-green-500/20 border-green-500/30' 
-                        : index === 0 
-                        ? 'bg-yellow-500/10 border-yellow-500/30' 
-                        : 'bg-gray-800/30 border-gray-700/30'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl font-bold text-indigo-400">#{index + 1}</span>
-                      <span className="text-lg">{player.name}</span>
-                    </div>
-                    <span className="text-2xl font-bold text-indigo-400">{player.score}</span>
-                  </motion.div>
-                ))}
+              {sortedPlayers.map((player, index) => (
+                <motion.div
+                  key={player.id}
+                  className={`flex items-center justify-between p-4 rounded-xl border ${
+                    player.id === lastAnswerResult.playerId
+                      ? 'bg-green-500/20 border-green-500/30' 
+                      : index === 0 
+                      ? 'bg-yellow-500/10 border-yellow-500/30' 
+                      : 'bg-gray-800/30 border-gray-700/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl font-bold text-indigo-400">#{index + 1}</span>
+                    <span className="text-lg">{player.name}</span>
+                  </div>
+                  <span className="text-2xl font-bold text-indigo-400">{player.score}</span>
+                </motion.div>
+              ))}
             </div>
           </div>
         </div>
@@ -257,27 +306,25 @@ const GameplayDisplay = ({
             </h2>
           </div>
           <div className="space-y-2">
-            {players
-              .sort((a, b) => b.score - a.score)
-              .map((player, index) => (
-                <motion.div
-                  key={player.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className={`flex items-center justify-between p-4 rounded-xl border ${
-                    index === 0 
-                      ? 'bg-yellow-500/10 border-yellow-500/30' 
-                      : 'bg-gray-800/30 border-gray-700/30'
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-indigo-400">#{index + 1}</span>
-                    <span className="text-lg">{player.name}</span>
-                  </div>
-                  <span className="text-2xl font-bold text-indigo-400">{player.score}</span>
-                </motion.div>
-              ))}
+            {sortedPlayers.map((player, index) => (
+              <motion.div
+                key={player.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className={`flex items-center justify-between p-4 rounded-xl border ${
+                  index === 0 
+                    ? 'bg-yellow-500/10 border-yellow-500/30' 
+                    : 'bg-gray-800/30 border-gray-700/30'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-bold text-indigo-400">#{index + 1}</span>
+                  <span className="text-lg">{player.name}</span>
+                </div>
+                <span className="text-2xl font-bold text-indigo-400">{player.score}</span>
+              </motion.div>
+            ))}
           </div>
         </div>
       </div>
@@ -286,13 +333,30 @@ const GameplayDisplay = ({
       <div className="flex-1 flex flex-col p-8">
         {/* Question Display */}
         <div className="flex-1 flex flex-col items-center justify-center mb-8">
-          {currentQuestion?.isVisible ? (
-            <h1 
-              className="text-6xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400"
-              data-testid="current-question"
-            >
-              {currentQuestion.text}
-            </h1>
+          {currentQuestion ? (
+            <>
+              <h1 
+                className="text-6xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400"
+                data-testid="current-question"
+              >
+                {currentQuestion.text}
+              </h1>
+              
+              {/* Current Answerer Display */}
+              {buzzerQueue.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-4xl text-center"
+                  data-testid="current-answerer"
+                >
+                  <span className="font-bold text-indigo-400">
+                    {players.find(p => p.id === buzzerQueue[0])?.name}
+                  </span>{" "}
+                  <span className="text-white/80">is answering...</span>
+                </motion.div>
+              )}
+            </>
           ) : (
             <div 
               className="text-3xl text-center text-indigo-300/60"
@@ -303,6 +367,38 @@ const GameplayDisplay = ({
           )}
         </div>
 
+        {/* Previous Incorrect Answers */}
+        {previousAnswers.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <X className="w-6 h-6 text-red-400" />
+              <h3 className="text-2xl font-bold text-red-400">
+                Previous Incorrect Answers
+              </h3>
+            </div>
+            <div className="space-y-2">
+              <AnimatePresence mode="popLayout">
+                {previousAnswers.map((answer, index) => (
+                  <motion.div
+                    key={`${answer.playerId}-${index}`}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: 20 }}
+                    className="bg-red-500/10 border border-red-500/30 rounded-xl p-4"
+                  >
+                    <span 
+                      className="font-medium text-red-300"
+                      data-testid={`incorrect-answer-${answer.playerId}`}
+                    >
+                      {answer.playerName}
+                    </span>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </div>
+          </div>
+        )}
+
         {/* Buzzer Queue */}
         <div 
           className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
@@ -311,14 +407,14 @@ const GameplayDisplay = ({
           <div className="flex items-center gap-2 mb-4">
             <Bell className="w-6 h-6 text-indigo-400" />
             <h3 className="text-2xl font-bold text-indigo-400">
-              Buzzer Queue
+              Up Next
             </h3>
           </div>
           
-          {buzzerQueue.length > 0 ? (
+          {buzzerQueue.length > 1 ? (
             <div className="space-y-3">
               <AnimatePresence mode="popLayout">
-                {buzzerQueue.map((playerId, index) => {
+                {buzzerQueue.slice(1).map((playerId, index) => {
                   const player = players.find(p => p.id === playerId);
                   return (
                     <motion.div
@@ -328,26 +424,14 @@ const GameplayDisplay = ({
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: 50 }}
                       transition={{ duration: 0.3 }}
-                      className={`flex items-center justify-between p-4 rounded-xl border ${
-                        index === 0 
-                          ? 'border-indigo-500/30 bg-indigo-500/10' 
-                          : 'border-gray-700/50'
-                      }`}
+                      className="flex items-center justify-between p-4 rounded-xl border border-gray-700/50"
                     >
                       <div className="flex items-center gap-4">
                         <span className="text-2xl font-bold text-indigo-400">
-                          #{index + 1}
+                          #{index + 2}
                         </span>
                         <span className="text-xl">{player?.name}</span>
                       </div>
-                      {index === 0 && (
-                        <span 
-                          className="px-3 py-1 bg-indigo-500/20 rounded-full text-sm font-bold border border-indigo-500/30"
-                          data-testid="answering-badge"
-                        >
-                          Answering
-                        </span>
-                      )}
                     </motion.div>
                   );
                 })}
@@ -359,7 +443,7 @@ const GameplayDisplay = ({
               data-testid="empty-queue-message"
             >
               <Bell className="w-12 h-12 mb-4 opacity-50" />
-              <p className="text-xl">Waiting for players to buzz in...</p>
+              <p className="text-xl">No one else in queue</p>
             </div>
           )}
         </div>

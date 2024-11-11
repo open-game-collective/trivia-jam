@@ -49,7 +49,6 @@ export type GamePublicContext = {
   }>;
   currentQuestion: {
     text: string;
-    isVisible: boolean;
   } | null;
   buzzerQueue: string[]; // Array of player IDs in buzz order
   gameStatus: "lobby" | "active" | "finished";
@@ -68,6 +67,7 @@ export type GamePublicContext = {
     playerName: string;
     correct: boolean;
   }>;
+  questionNumber: number;
 };
 
 export type GamePrivateContext = {};

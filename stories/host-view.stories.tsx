@@ -16,6 +16,9 @@ const meta = {
   parameters: {
     layout: "fullscreen",
   },
+  args: {
+    host: "triviajam.tv"
+  },
   decorators: [
     withActorKit<SessionMachine>({
       actorType: "session",
@@ -79,12 +82,12 @@ export const StartingGame: Story = {
               { id: "player-2", name: "Player 2", score: 0 },
             ],
           },
-          value: { lobby: { GameCode: "Created" } },
+          value: { lobby: "ready" },
         },
       },
     },
   },
-  play: async ({ canvasElement, mount, step }) => {
+  play: async ({ canvasElement, mount, step, args }) => {
     const canvas = within(canvasElement);
     
     const gameClient = createActorKitMockClient<GameMachine>({
@@ -98,14 +101,14 @@ export const StartingGame: Story = {
             { id: "player-2", name: "Player 2", score: 0 },
           ],
         },
-        value: { lobby: { GameCode: "Created" } },
+        value: { lobby: "ready" },
       },
     });
 
     await step('Mount component with initial state', async () => {
       await mount(
         <GameContext.ProviderFromClient client={gameClient}>
-          <HostView />
+          <HostView host={args.host} />
         </GameContext.ProviderFromClient>
       );
     });
@@ -166,7 +169,7 @@ export const AskingQuestion: Story = {
       },
     },
   },
-  play: async ({ canvasElement, mount, step }) => {
+  play: async ({ canvasElement, mount, step, args }) => {
     const canvas = within(canvasElement);
 
     // Create game client to manipulate state
@@ -186,7 +189,7 @@ export const AskingQuestion: Story = {
     await step('Mount component with initial state', async () => {
       await mount(
         <GameContext.ProviderFromClient client={gameClient}>
-          <HostView />
+          <HostView host={args.host} />
         </GameContext.ProviderFromClient>
       );
     });
@@ -204,15 +207,18 @@ export const AskingQuestion: Story = {
       gameClient.produce((draft) => {
         draft.public.currentQuestion = {
           text: "What is the capital of France?",
-          isVisible: false,
         };
       });
     });
 
     await step('Verify question was submitted', async () => {
-      // Verify show question button appears
-      const showQuestionButton = await canvas.findByRole("button", { name: /show question/i });
-      expect(showQuestionButton).toBeInTheDocument();
+      // Verify the question is displayed
+      const questionDisplay = await canvas.findByText("What is the capital of France?");
+      expect(questionDisplay).toBeInTheDocument();
+
+      // Verify the skip button is available
+      const skipButton = await canvas.findByRole("button", { name: /skip/i });
+      expect(skipButton).toBeInTheDocument();
     });
   },
 };
@@ -238,7 +244,6 @@ export const ValidatingAnswer: Story = {
             gameStatus: "active",
             currentQuestion: {
               text: "What is the capital of France?",
-              isVisible: true,
             },
             buzzerQueue: ["player-456"],
             players: [
@@ -251,7 +256,7 @@ export const ValidatingAnswer: Story = {
       },
     },
   },
-  play: async ({ canvasElement, mount, step }) => {
+  play: async ({ canvasElement, mount, step, args }) => {
     const canvas = within(canvasElement);
     
     const gameClient = createActorKitMockClient<GameMachine>({
@@ -263,7 +268,6 @@ export const ValidatingAnswer: Story = {
           gameStatus: "active",
           currentQuestion: {
             text: "What is the capital of France?",
-            isVisible: true,
           },
           buzzerQueue: ["player-456"],
           players: [
@@ -278,7 +282,7 @@ export const ValidatingAnswer: Story = {
     await step('Mount component with initial state', async () => {
       await mount(
         <GameContext.ProviderFromClient client={gameClient}>
-          <HostView />
+          <HostView host={args.host} />
         </GameContext.ProviderFromClient>
       );
     });
@@ -378,24 +382,32 @@ export const InLobbyWithPlayers: Story = {
             ...defaultGameSnapshot.public,
             hostId: "host-123",
             players: [
+              { id: "host-123", name: "Test Host", score: 0 },
               { id: "player-1", name: "Player 1", score: 0 },
               { id: "player-2", name: "Player 2", score: 0 },
             ],
           },
+          value: { lobby: "ready" },
         },
       },
     },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    
-    // Verify start button is enabled
-    const startButton = canvas.getByRole('button', { name: /start game/i });
+
+    // Verify start button is enabled with enough players
+    const startButton = canvas.getByRole('button', { name: /start game$/i });
     expect(startButton).toBeEnabled();
-    
-    // Verify player count
-    const playerCount = await canvas.findByText(/players \(2\)/i);
-    expect(playerCount).toBeInTheDocument();
+
+    // Verify player list
+    const player1 = await canvas.findByText("Player 1");
+    expect(player1).toBeInTheDocument();
+    const player2 = await canvas.findByText("Player 2");
+    expect(player2).toBeInTheDocument();
+
+    // Verify empty slots
+    const emptySlots = await canvas.findAllByText("Empty Slot");
+    expect(emptySlots).toHaveLength(7); // 10 total slots - 3 players = 7 empty slots
   },
 };
 
@@ -429,29 +441,25 @@ export const CopyGameCode: Story = {
     const writeText = fn();
     
     await step('Setup clipboard mock', async () => {
-      // Create a new object instead of modifying navigator.clipboard directly
       Object.defineProperty(navigator, 'clipboard', {
         value: { writeText },
         writable: true
       });
     });
     
-    await step('Copy game code', async () => {
-      // Find and click the game code button
-      const gameCodeButton = canvas.getByText("test-game-id");
-      await userEvent.click(gameCodeButton);
+    await step('Copy game link', async () => {
+      // Find the game link container by test ID
+      const gameLinkButton = await canvas.findByTestId("game-link-button");
+      await userEvent.click(gameLinkButton);
       
-      // Verify clipboard was called
-      expect(writeText).toHaveBeenCalledWith("test-game-id");
+      // Verify clipboard was called with the full URL
+      expect(writeText).toHaveBeenCalledWith("https://triviajam.tv/games/test-game-id");
     });
     
     await step('Verify copy feedback', async () => {
-      // Initially, "Click to copy" should be visible
-      expect(canvas.getByText("Click to copy")).toBeInTheDocument();
-      
-      // After clicking, it should still be visible
-      // (the component doesn't actually remove this text, it just shows/hides the check icon)
-      expect(canvas.getByText("Click to copy")).toBeInTheDocument();
+      // Check for the check icon after copying
+      const checkIcon = await canvas.findByTestId("copy-success-icon");
+      expect(checkIcon).toBeInTheDocument();
     });
   },
 };
@@ -525,6 +533,58 @@ export const QuestionInput: Story = {
       },
     },
   },
+  play: async ({ canvasElement, mount, step, args }) => {
+    const canvas = within(canvasElement);
+
+    // Create game client to manipulate state
+    const gameClient = createActorKitMockClient<GameMachine>({
+      initialSnapshot: {
+        ...defaultGameSnapshot,
+        public: {
+          ...defaultGameSnapshot.public,
+          hostId: "host-123",
+          gameStatus: "active",
+          currentQuestion: null,
+        },
+        value: { active: "questionPrep" },
+      },
+    });
+
+    await step('Mount component with initial state', async () => {
+      await mount(
+        <GameContext.ProviderFromClient client={gameClient}>
+          <HostView host={args.host} />
+        </GameContext.ProviderFromClient>
+      );
+    });
+
+    await step('Enter and submit question', async () => {
+      // Find the textarea by its label text
+      const questionInput = canvas.getByRole('textbox', { name: /enter question/i });
+      await userEvent.type(questionInput, "What is the capital of France?");
+      
+      // Find and click the submit button
+      const submitButton = canvas.getByRole("button", { name: /submit question/i });
+      await userEvent.click(submitButton);
+
+      // Simulate question being submitted
+      gameClient.produce((draft) => {
+        draft.public.currentQuestion = {
+          text: "What is the capital of France?",
+        };
+      });
+    });
+
+    await step('Verify question was submitted', async () => {
+      // Verify the question is displayed
+      const questionDisplay = await canvas.findByText("What is the capital of France?");
+      expect(questionDisplay).toBeInTheDocument();
+
+      // Verify the skip button is available
+      const skipButton = await canvas.findByRole("button", { name: /skip/i });
+      expect(skipButton).toBeInTheDocument();
+    });
+  },
 };
 
 /**
@@ -560,7 +620,7 @@ export const LoadingGameCode: Story = {
     const canvas = within(canvasElement);
     
     // Verify loading message is shown
-    const loadingMessage = await canvas.findByText(/generating game code/i);
+    const loadingMessage = await canvas.findByText(/creating game/i);
     expect(loadingMessage).toBeInTheDocument();
     
     // Verify loading spinner is present

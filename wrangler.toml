@@ -14,7 +14,7 @@ kv_namespaces = [
 "process.env.REMIX_DEV_SERVER_WS_PORT" = "8002"
 
 [vars]
-ACTOR_KIT_HOST = "trivia-jam.jonathanrmumm.workers.dev"
+ACTOR_KIT_HOST = "triviajam.tv"
 
 [[durable_objects.bindings]]
 name = "REMIX"

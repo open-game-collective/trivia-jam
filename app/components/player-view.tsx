@@ -138,7 +138,7 @@ const GameplayDisplay = ({
   lastAnswerResult,
   userId
 }: { 
-  currentQuestion: { text: string; isVisible: boolean } | null;
+  currentQuestion: { text: string } | null;
   isPlayerInQueue: boolean;
   isFirstInQueue: boolean;
   playerScore: number;
@@ -172,6 +172,7 @@ const GameplayDisplay = ({
       <div className="relative z-10 w-full max-w-4xl space-y-6">
         {/* Score Display */}
         <motion.div
+          data-testid="score-display"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
@@ -186,6 +187,7 @@ const GameplayDisplay = ({
         <AnimatePresence>
           {lastAnswerResult && (
             <motion.div
+              data-testid="answer-feedback"
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
@@ -196,11 +198,11 @@ const GameplayDisplay = ({
               }`}
             >
               {lastAnswerResult.playerId === userId ? (
-                <span className="text-2xl font-bold">
+                <span className="text-2xl font-bold" data-testid="player-feedback">
                   {lastAnswerResult.correct ? "You got it correct! 🎉" : "Sorry, that's incorrect"}
                 </span>
               ) : (
-                <span className="text-2xl">
+                <span className="text-2xl" data-testid="other-player-feedback">
                   <span className="font-bold">{lastAnswerResult.playerName}</span> 
                   {lastAnswerResult.correct ? " got it correct! 🎉" : " got it wrong"}
                 </span>
@@ -211,25 +213,34 @@ const GameplayDisplay = ({
 
         {/* Question & Buzzer Area */}
         <motion.div
+          data-testid="question-area"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 flex flex-col items-center"
         >
-          {currentQuestion?.isVisible ? (
+          {currentQuestion ? (
             <>
-              <h2 className="text-4xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-12">
+              <h2 
+                data-testid="current-question"
+                className="text-4xl font-bold text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-12"
+              >
                 {currentQuestion.text}
               </h2>
               {isPlayerInQueue ? (
                 <div className="text-2xl text-center">
                   {isFirstInQueue ? (
-                    <span className="text-yellow-400 font-bold">Your turn to answer!</span>
+                    <span data-testid="answering-status" className="text-yellow-400 font-bold">
+                      Your turn to answer!
+                    </span>
                   ) : (
-                    <span className="text-indigo-300">Waiting for your turn...</span>
+                    <span data-testid="queue-status" className="text-indigo-300">
+                      Waiting for your turn...
+                    </span>
                   )}
                 </div>
               ) : !hasAnsweredIncorrectly ? (
                 <motion.button
+                  data-testid="buzz-button"
                   onClick={onBuzzIn}
                   className="group relative"
                   whileHover={{ scale: 1.05 }}
@@ -244,7 +255,10 @@ const GameplayDisplay = ({
               ) : null}
             </>
           ) : (
-            <div className="text-2xl text-center text-indigo-300/60">
+            <div 
+              data-testid="waiting-message"
+              className="text-2xl text-center text-indigo-300/60"
+            >
               Waiting for question...
             </div>
           )}
@@ -382,6 +396,7 @@ const NameInputDisplay = ({ onSubmit }: { onSubmit: (name: string) => void }) =>
       </div>
 
       <motion.div
+        data-testid="name-input-form"
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         className="relative z-10 w-full max-w-md bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
@@ -395,6 +410,7 @@ const NameInputDisplay = ({ onSubmit }: { onSubmit: (name: string) => void }) =>
               Your Name
             </label>
             <input
+              data-testid="name-input"
               id="playerName"
               type="text"
               value={name}
@@ -409,6 +425,7 @@ const NameInputDisplay = ({ onSubmit }: { onSubmit: (name: string) => void }) =>
             />
             {error && (
               <motion.p
+                data-testid="name-input-error"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="mt-2 text-sm text-red-400"
@@ -418,6 +435,7 @@ const NameInputDisplay = ({ onSubmit }: { onSubmit: (name: string) => void }) =>
             )}
           </div>
           <motion.button
+            data-testid="join-button"
             type="submit"
             whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
             whileTap={{ scale: isSubmitting ? 1 : 0.98 }}

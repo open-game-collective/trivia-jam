@@ -19,15 +19,16 @@ export const defaultGameSnapshot = {
     ],
     currentQuestion: null,
     buzzerQueue: [],
-    gameStatus: "lobby",
+    gameStatus: "lobby" as const,
     winner: null,
     settings: {
       maxPlayers: 10,
       questionCount: 10,
     },
+    questionNumber: 0,
   },
   private: {},
-  value: { lobby: { GameCode: "Created" } },
+  value: { lobby: "ready" },
 } satisfies CallerSnapshotFrom<GameMachine>;
 
 export const defaultSessionSnapshot = {
@@ -69,6 +70,10 @@ export interface RemixParameters<TLoader> {
     initialPath: string;
     /** Mock data that would be returned by the loader */
     loaderData: TLoader;
+    /** Route path pattern (e.g., "/games/:gameId") */
+    routePattern?: string;
+    /** Route ID for hydration (e.g., "routes/games.$gameId") */
+    routeId?: string;
     /** Additional routes to register in the Remix environment */
     routes?: Route[];
     /** Mock user ID for authentication */
@@ -217,13 +222,13 @@ export interface ActorKitParameters<TMachine extends AnyActorKitStateMachine> {
  *   play: async ({ canvasElement, mount }) => {
  *     const client = createActorKitMockClient({...});
  *     const canvas = within(canvasElement);
- *     
+ *
  *     await mount(
  *       <Context.ProviderFromClient client={client}>
  *         <Component />
  *       </Context.ProviderFromClient>
  *     );
- *     
+ *
  *     // Now you can manipulate client state...
  *     client.produce((draft) => { ... });
  *   }

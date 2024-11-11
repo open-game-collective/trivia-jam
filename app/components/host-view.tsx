@@ -15,7 +15,7 @@ import { useState } from "react";
 import { GameContext } from "~/game.context";
 import { SessionContext } from "~/session.context";
 
-export const HostView = () => {
+export const HostView = ({ host }: { host: string }) => {
   const gameState = GameContext.useSelector((state) => state);
   const sessionState = SessionContext.useSelector((state) => state.public);
   const {
@@ -24,7 +24,7 @@ export const HostView = () => {
     buzzerQueue,
     players,
     hostId,
-    gameCode,
+    id,
   } = gameState.public;
   const send = GameContext.useSend();
 
@@ -47,7 +47,7 @@ export const HostView = () => {
     );
   }
 
-  if (!gameCode) {
+  if (!id) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 relative">
         <div className="absolute inset-0 overflow-hidden">
@@ -73,7 +73,7 @@ export const HostView = () => {
           className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 text-center"
         >
           <h1 className="text-2xl font-bold mb-4 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-            Generating Game Code...
+            Creating Game...
           </h1>
           <Loader2
             className="w-12 h-12 animate-spin mx-auto text-indigo-400"
@@ -91,6 +91,7 @@ export const HostView = () => {
           <LobbyControls
             players={players}
             onStartGame={() => send({ type: "START_GAME" })}
+            host={host}
           />
         )}
 
@@ -109,23 +110,77 @@ export const HostView = () => {
   );
 };
 
+const PlayerSlot = ({ player }: { player?: { id: string; name: string; score: number } }) => (
+  <div className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-gray-900/30 border border-gray-700/30">
+    {player ? (
+      <>
+        <span className="font-medium">{player.name}</span>
+        <span className="text-indigo-400 font-bold">{player.score}</span>
+      </>
+    ) : (
+      <span className="text-white/30 font-medium">Empty Slot</span>
+    )}
+  </div>
+);
+
+const PlayerList = ({ players, maxPlayers = 10 }: { 
+  players: Array<{ id: string; name: string; score: number }>;
+  maxPlayers?: number;
+}) => {
+  // Create array of length maxPlayers filled with players or undefined
+  const slots = Array(maxPlayers).fill(undefined).map((_, i) => players[i]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
+    >
+      <h2 className="text-xl font-bold mb-3 text-indigo-300 flex items-center gap-2">
+        <Users className="w-5 h-5" /> Players ({players.length}/{maxPlayers})
+      </h2>
+      <div className="space-y-2">
+        {slots.map((player, index) => (
+          <PlayerSlot key={player?.id || `empty-${index}`} player={player} />
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+
 const LobbyControls = ({
   players,
   onStartGame,
+  host,
 }: {
   players: Array<{ id: string; name: string; score: number }>;
   onStartGame: () => void;
+  host: string;
 }) => {
   const gameState = GameContext.useSelector((state) => state.public);
   const hasEnoughPlayers = players.length > 1;
   const [copied, setCopied] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
 
-  const copyGameCode = async () => {
-    if (gameState.gameCode) {
-      await navigator.clipboard.writeText(gameState.gameCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+  // Construct the game URL using the host and game ID
+  const gameUrl = `https://${host}/games/${gameState.id}`;
+
+  const copyGameLink = async () => {
+    await navigator.clipboard.writeText(gameUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const shareGameLink = async () => {
+    try {
+      await navigator.share({
+        title: 'Join my Trivia Jam game!',
+        text: 'Click to join my Trivia Jam game!',
+        url: gameUrl
+      });
+    } catch (err) {
+      // Fallback to copy if share fails or isn't supported
+      copyGameLink();
     }
   };
 
@@ -160,53 +215,81 @@ const LobbyControls = ({
         exit={{ opacity: 0, scale: 0.9 }}
         className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
       >
-        {/* Game Code Section */}
+        {/* Game Link Section */}
         <div className="mb-8">
           <h2 className="text-xl font-bold text-indigo-300 text-center mb-4">
-            Game Code
+            Share Game Link
           </h2>
-          <motion.button
-            onClick={copyGameCode}
-            className="w-full relative group"
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-          >
-            <div className="absolute inset-0 bg-indigo-500/20 rounded-xl blur-xl group-hover:bg-indigo-500/30 transition-all" />
-            <div className="relative bg-gray-800/50 backdrop-blur-sm border border-indigo-500/30 rounded-xl p-6 flex items-center justify-center gap-4">
-              <span className="text-4xl font-mono font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-                {gameState.gameCode}
-              </span>
-              <AnimatePresence mode="wait">
-                {copied ? (
-                  <motion.div
-                    key="check"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="text-green-400"
-                  >
-                    <Check className="w-6 h-6" />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="copy"
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="text-indigo-400 group-hover:text-indigo-300 transition-colors"
-                  >
-                    <Copy className="w-6 h-6" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          </motion.button>
+          <div className="space-y-3">
+            <motion.button
+              onClick={copyGameLink}
+              className="w-full relative group"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              data-testid="game-link-button"
+            >
+              <div className="absolute inset-0 bg-indigo-500/20 rounded-xl blur-xl group-hover:bg-indigo-500/30 transition-all" />
+              <div className="relative bg-gray-800/50 backdrop-blur-sm border border-indigo-500/30 rounded-xl p-4 sm:p-6 flex items-center justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm sm:text-lg font-medium tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 truncate block">
+                    {gameUrl}
+                  </span>
+                </div>
+                <div className="flex-shrink-0">
+                  <AnimatePresence mode="wait">
+                    {copied ? (
+                      <motion.div
+                        key="check"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="text-green-400"
+                        data-testid="copy-success-icon"
+                      >
+                        <Check className="w-5 h-5 sm:w-6 sm:h-6" />
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="copy"
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        exit={{ scale: 0 }}
+                        className="text-indigo-400 group-hover:text-indigo-300 transition-colors"
+                        data-testid="copy-icon"
+                      >
+                        <Copy className="w-5 h-5 sm:w-6 sm:h-6" />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            </motion.button>
+
+            {/* Share button - only shown if Web Share API is available */}
+            {typeof navigator !== 'undefined' && 'share' in navigator && (
+              <motion.button
+                onClick={shareGameLink}
+                className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 rounded-xl p-4 sm:p-6 flex items-center justify-center gap-2 transition-colors"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <svg 
+                  className="w-5 h-5 sm:w-6 sm:h-6" 
+                  fill="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92zM18 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM6 13c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm12 7.02c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/>
+                </svg>
+                Share Game
+              </motion.button>
+            )}
+          </div>
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="text-center mt-2 text-indigo-300/60 text-sm"
           >
-            Click to copy
+            Click to copy or share game link
           </motion.div>
         </div>
 
@@ -214,24 +297,7 @@ const LobbyControls = ({
           Game Lobby
         </h1>
 
-        <div className="space-y-3 mb-8">
-          <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
-            <Users className="w-6 h-6" /> Players ({players.length})
-          </h2>
-          <AnimatePresence mode="popLayout">
-            {players.map((player, index) => (
-              <motion.div
-                key={player.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className="flex justify-between items-center p-4 rounded-xl border bg-gray-800/30 border-gray-700/30"
-              >
-                <span className="font-medium">{player.name}</span>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+        <PlayerList players={players} />
 
         <div className="space-y-3">
           <motion.button
@@ -280,7 +346,7 @@ const QuestionControls = ({
   players,
   send,
 }: {
-  currentQuestion: { text: string; isVisible: boolean } | null;
+  currentQuestion: { text: string } | null;
   buzzerQueue: string[];
   players: Array<{ id: string; name: string; score: number }>;
   send: (event: any) => void;
@@ -294,15 +360,15 @@ const QuestionControls = ({
     }
   };
 
-  const handleShowQuestion = () => {
-    send({ type: "SHOW_QUESTION" });
+  const handleSkipQuestion = () => {
+    send({ type: "SKIP_QUESTION" });
   };
 
   const handleValidateAnswer = (playerId: string, correct: boolean) => {
     send({ type: "VALIDATE_ANSWER", playerId, correct });
   };
 
-  // Create a sorted copy of the players array
+  // Sort players by score
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
   return (
@@ -334,23 +400,23 @@ const QuestionControls = ({
             animate={{ opacity: 1, y: 0 }}
             className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
           >
-            <h2 className="text-xl font-bold mb-2 text-indigo-300">
-              Current Question
-            </h2>
-            <p className="text-lg sm:text-xl text-white/90 mb-4">
-              {currentQuestion.text}
-            </p>
-            {!currentQuestion.isVisible && (
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold text-indigo-300">
+                Current Question
+              </h2>
               <motion.button
-                onClick={handleShowQuestion}
-                className="w-full bg-gradient-to-r from-yellow-600 to-orange-600 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-xl shadow-lg hover:from-yellow-500 hover:to-orange-500 transition-all flex items-center justify-center gap-2"
+                onClick={handleSkipQuestion}
+                className="bg-yellow-500/20 border border-yellow-500/30 hover:bg-yellow-500/30 text-white text-sm font-bold py-1 px-3 rounded-lg transition-all flex items-center gap-1"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                <Eye className="w-5 h-5" />
-                Show Question
+                <ChevronRight className="w-4 h-4" />
+                Skip
               </motion.button>
-            )}
+            </div>
+            <p className="text-lg sm:text-xl text-white/90 mb-4">
+              {currentQuestion.text}
+            </p>
           </motion.div>
         )}
 
@@ -372,8 +438,8 @@ const QuestionControls = ({
               value={questionText}
               onChange={(e) => setQuestionText(e.target.value)}
               placeholder="Type your question here..."
-              className="w-full bg-gray-900/50 rounded-xl p-3 sm:p-4 text-white placeholder-white/50 border border-gray-700/50 mb-3 sm:mb-4 text-sm sm:text-base"
-              rows={3}
+              className="w-full bg-gray-900/50 rounded-xl p-3 sm:p-4 text-white placeholder-white/50 border border-gray-700/50 mb-3 sm:mb-4 text-lg"
+              rows={5}
               aria-label="Enter question"
             />
             <motion.button
@@ -400,12 +466,12 @@ const QuestionControls = ({
             </h2>
             {buzzerQueue.map((playerId, index) => {
               const player = players.find((p) => p.id === playerId);
-              if (index === 0) {
+              if (index === 0 && player) {
                 return (
                   <div key={playerId} className="space-y-3">
                     <div className="text-lg sm:text-xl text-white/90">
                       <span className="font-bold text-indigo-400">
-                        {player?.name}
+                        {player.name}
                       </span>{" "}
                       is answering...
                     </div>
@@ -440,28 +506,7 @@ const QuestionControls = ({
         )}
 
         {/* Player List */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
-        >
-          <h2 className="text-xl font-bold mb-3 text-indigo-300 flex items-center gap-2">
-            <Crown className="w-5 h-5" /> Players
-          </h2>
-          <div className="space-y-2">
-            {sortedPlayers.map((player) => (
-              <div
-                key={player.id}
-                className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-gray-900/30 border border-gray-700/30"
-              >
-                <span className="font-medium">{player.name}</span>
-                <span className="text-indigo-400 font-bold">
-                  {player.score}
-                </span>
-              </div>
-            ))}
-          </div>
-        </motion.div>
+        <PlayerList players={sortedPlayers} />
 
         {/* End Game Button */}
         <motion.button

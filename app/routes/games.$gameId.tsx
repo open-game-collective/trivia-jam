@@ -54,9 +54,9 @@ export default function GameRoute() {
       initialSnapshot={payload.snapshot}
     >
       {deviceType !== "mobile" ? (
-        <SpectatorView />
+        <SpectatorView host={host} />
       ) : hostId === userId ? (
-        <HostView />
+        <HostView host={host} />
       ) : (
         <PlayerView />
       )}

@@ -32,7 +32,7 @@
     "@remix-run/server-runtime": "^2.13.1",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
-    "actor-kit": "^0.40.0",
+    "actor-kit": "^0.41.0",
     "canvas-confetti": "^1.9.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",

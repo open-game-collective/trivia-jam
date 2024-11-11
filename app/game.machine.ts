@@ -1,7 +1,7 @@
 import { ActorKitStateMachine } from "actor-kit";
 import { produce } from "immer";
 import { and, assign, DoneActorEvent, fromPromise, setup } from "xstate";
-import type { GameEvent, GameInput, GameServerContext } from "./game.types";
+import type { GameEvent, GameInput, GameServerContext, GamePublicContext } from "./game.types";
 
 export const gameMachine = setup({
   types: {} as {
@@ -11,12 +11,10 @@ export const gameMachine = setup({
   },
   guards: {
     isHost: ({ context, event }) => event.caller.id === context.public.hostId,
-    canBuzzIn: ({ context }) =>
-      context.public.currentQuestion?.isVisible ?? false,
-    hasNotBuzzedYet: ({ context, event }) =>
-      !context.public.buzzerQueue.includes(event.caller.id),
-    isQuestionVisible: ({ context }) =>
-      context.public.currentQuestion?.isVisible ?? false,
+    canBuzzIn: ({ context }) => !!context.public.currentQuestion,
+    hasNotBuzzedYet: ({ context, event }) => !context.public.buzzerQueue.includes(event.caller.id),
+    hasReachedQuestionLimit: ({ context }, { questionNumber }: { questionNumber: number }) => 
+      questionNumber > context.public.settings.questionCount,
   },
   actors: {
     generateGameCode: fromPromise(async () => {
@@ -29,111 +27,101 @@ export const gameMachine = setup({
     }),
   },
   actions: {
-    assignGameCode: assign({
-      public: ({ context }, params: { gameCode: string }) =>
-        produce(context.public, (draft) => {
-          draft.gameCode = params.gameCode;
-        }),
-    }),
-    addPlayer: assign({
-      public: ({ context, event }) => {
-        if (event.type !== "JOIN_GAME") return context.public;
-        return {
-          ...context.public,
-          players: [
-            ...context.public.players,
-            { id: event.caller.id, name: event.playerName, score: 0 },
-          ],
+    updateGameStatus: assign(({ context }, { status }: { status: "lobby" | "active" | "finished" }) => ({
+      public: produce(context.public, draft => {
+        draft.gameStatus = status;
+      })
+    })),
+    setQuestionNumber: assign(({ context }, { number }: { number: number }) => ({
+      public: produce(context.public, draft => {
+        draft.questionNumber = number;
+      })
+    })),
+    addPlayerToGame: assign(({ context }, { name, id }: { name: string; id: string }) => ({
+      public: produce(context.public, draft => {
+        draft.players.push({ id, name, score: 0 });
+      })
+    })),
+    setQuestion: assign(({ context }, { question }: { question: string }) => ({
+      public: produce(context.public, draft => {
+        draft.currentQuestion = {
+          text: question,
         };
-      },
-    }),
-    setQuestion: assign({
-      public: ({ context, event }) => {
-        if (event.type !== "SUBMIT_QUESTION") return context.public;
-        return {
-          ...context.public,
-          currentQuestion: {
-            text: event.question,
-            isVisible: false,
-          },
-          buzzerQueue: [],
-        };
-      },
-    }),
-    showQuestion: assign({
-      public: ({ context }) => ({
-        ...context.public,
-        currentQuestion: context.public.currentQuestion
-          ? { ...context.public.currentQuestion, isVisible: true }
-          : null,
-      }),
-    }),
-    addToBuzzerQueue: assign({
-      public: ({ context, event }) => {
-        if (event.type !== "BUZZ_IN") return context.public;
-        return {
-          ...context.public,
-          buzzerQueue: [...context.public.buzzerQueue, event.caller.id],
-        };
-      },
-    }),
-    validateAnswer: assign({
-      public: ({ context, event }) => {
-        if (event.type !== "VALIDATE_ANSWER") return context.public;
-        const player = context.public.players.find(
-          (p) => p.id === event.playerId
-        );
+        draft.buzzerQueue = [];
+        draft.lastAnswerResult = null;
+        draft.previousAnswers = [];
+      })
+    })),
+    addToBuzzerQueue: assign(({ context, event }: { context: GameServerContext; event: GameEvent }) => ({
+      public: produce(context.public, draft => {
+        draft.buzzerQueue.push(event.caller.id);
+      })
+    })),
+    validateAnswer: assign(({ context }, { playerId, correct }: { playerId: string; correct: boolean }) => ({
+      public: produce(context.public, draft => {
+        const player = draft.players.find(p => p.id === playerId);
+        if (player) {
+          if (correct) {
+            player.score += 1;
+            draft.questionNumber += 1;
+            draft.currentQuestion = null;
+            draft.buzzerQueue = [];
+          } else {
+            draft.buzzerQueue = draft.buzzerQueue.slice(1);
+            draft.previousAnswers = draft.previousAnswers || [];
+            draft.previousAnswers.push({
+              playerId: player.id,
+              playerName: player.name,
+              correct: false,
+            });
+          }
 
-        return {
-          ...context.public,
-          players: context.public.players.map((player) =>
-            player.id === event.playerId
-              ? { ...player, score: player.score + (event.correct ? 1 : 0) }
-              : player
-          ),
-          buzzerQueue: event.correct ? [] : context.public.buzzerQueue.slice(1),
-          currentQuestion: event.correct
-            ? null
-            : context.public.currentQuestion,
-          lastAnswerResult: player
-            ? {
-                playerId: player.id,
-                playerName: player.name,
-                correct: event.correct,
-              }
-            : null,
-        };
-      },
-    }),
-    startGame: assign({
-      public: ({ context }) => ({
-        ...context.public,
-        gameStatus: "active" as const,
-      }),
-    }),
-    endGame: assign({
-      public: ({ context }) => ({
-        ...context.public,
-        gameStatus: "finished" as const,
-        winner: context.public.players.reduce((a: Player, b: Player) =>
-          a.score > b.score ? a : b
-        ).id,
-      }),
-    }),
-    assignGeneratedGameCode: assign({
-      public: ({ context, event }: { 
-        context: GameServerContext; 
-        event: GameEvent | DoneActorEvent<string, "generateGameCode">
-      }) => {
-        if (event.type === "xstate.done.actor.generateGameCode") {
-          return {
-            ...context.public,
-            gameCode: event.output
+          draft.lastAnswerResult = {
+            playerId: player.id,
+            playerName: player.name,
+            correct,
           };
+
+          if (draft.questionNumber > draft.settings.questionCount) {
+            draft.gameStatus = "finished";
+            draft.winner = draft.players.reduce((a, b) => 
+              a.score > b.score ? a : b
+            ).id;
+          }
         }
-        return context.public;
-      }
-    }),
+      })
+    })),
+    setWinner: assign(({ context }) => ({
+      public: produce(context.public, draft => {
+        draft.winner = draft.players.reduce((a, b) => 
+          a.score > b.score ? a : b
+        ).id;
+      })
+    })),
+    setGameCode: assign(({ context }, { code }: { code: string }) => ({
+      public: produce(context.public, draft => {
+        draft.gameCode = code;
+      })
+    })),
+    assignGeneratedGameCode: assign(({ context }, { gameCode }: { gameCode: string }) => ({
+      public: produce(context.public, draft => {
+        draft.gameCode = gameCode;
+      })
+    })),
+    skipQuestion: assign(({ context }) => ({
+      public: produce(context.public, draft => {
+        draft.currentQuestion = null;
+        draft.buzzerQueue = [];
+        draft.questionNumber += 1;
+
+        if (draft.questionNumber > draft.settings.questionCount) {
+          draft.gameStatus = "finished";
+          draft.winner = draft.players.reduce((a, b) => 
+            a.score > b.score ? a : b
+          ).id;
+        }
+      })
+    })),
   },
 }).createMachine({
   id: "triviaGame",
@@ -152,38 +140,48 @@ export const gameMachine = setup({
         maxPlayers: 10,
         questionCount: 10,
       },
+      questionNumber: 0,
     },
     private: {},
   }),
   initial: "lobby",
   states: {
     lobby: {
-      on: {
-        JOIN_GAME: {
-          actions: "addPlayer",
-        },
-        START_GAME: {
-          guard: "isHost",
-          target: "active.questionPrep",
-          actions: "startGame",
-        },
-      },
-      type: "parallel",
+      initial: "generatingCode",
       states: {
-        GameCode: {
-          initial: "Generating",
-          states: {
-            Generating: {
-              invoke: {
-                id: "generateGameCode",
-                src: "generateGameCode",
-                onDone: {
-                  target: "Created",
-                  actions: "assignGeneratedGameCode"
-                },
+        generatingCode: {
+          invoke: {
+            src: 'generateGameCode',
+            onDone: {
+              target: 'ready',
+              actions: {
+                type: 'assignGeneratedGameCode',
+                params: ({ event }: { event: DoneActorEvent<string> }) => ({
+                  gameCode: event.output,
+                }),
               },
             },
-            Created: {},
+          },
+        },
+        ready: {
+          on: {
+            JOIN_GAME: {
+              actions: {
+                type: 'addPlayerToGame',
+                params: ({ event }: { event: Extract<GameEvent, { type: 'JOIN_GAME' }> }) => ({
+                  id: event.caller.id,
+                  name: event.playerName,
+                }),
+              },
+            },
+            START_GAME: {
+              guard: "isHost",
+              target: "#triviaGame.active",
+              actions: [
+                { type: 'updateGameStatus', params: { status: "active" } },
+                { type: 'setQuestionNumber', params: { number: 1 } },
+              ],
+            },
           },
         },
       },
@@ -191,43 +189,49 @@ export const gameMachine = setup({
     active: {
       initial: "questionPrep",
       states: {
-        questionPrep: {
-          on: {
-            SUBMIT_QUESTION: {
-              guard: "isHost",
-              actions: "setQuestion",
-              target: "questionActive",
-            },
-          },
-        },
-        questionActive: {
-          on: {
-            SHOW_QUESTION: {
-              guard: "isHost",
-              actions: "showQuestion",
-            },
-            BUZZ_IN: {
-              guard: and(["canBuzzIn", "hasNotBuzzedYet"]),
-              actions: "addToBuzzerQueue",
-              target: "answerValidation",
-            },
-          },
-        },
-        answerValidation: {
-          on: {
-            VALIDATE_ANSWER: {
-              guard: "isHost",
-              actions: "validateAnswer",
-              target: "questionPrep",
-            },
-          },
-        },
+        questionPrep: {},
+        questionActive: {},
+        answerValidation: {},
       },
       on: {
+        SUBMIT_QUESTION: {
+          guard: "isHost",
+          target: ".questionActive",
+          actions: {
+            type: 'setQuestion',
+            params: ({ event }: { event: GameEvent }) => ({
+              question: event.type === 'SUBMIT_QUESTION' ? event.question : '',
+            }),
+          },
+        },
+        BUZZ_IN: {
+          guard: and(["canBuzzIn", "hasNotBuzzedYet"]),
+          target: ".answerValidation",
+          actions: "addToBuzzerQueue",
+        },
+        VALIDATE_ANSWER: {
+          guard: "isHost",
+          target: ".questionPrep",
+          actions: {
+            type: 'validateAnswer',
+            params: ({ event }: { event: Extract<GameEvent, { type: 'VALIDATE_ANSWER' }> }) => ({
+              playerId: event.playerId,
+              correct: event.correct,
+            }),
+          },
+        },
         END_GAME: {
           guard: "isHost",
           target: "finished",
-          actions: "endGame",
+          actions: [
+            { type: 'updateGameStatus', params: { status: "finished" } },
+            'setWinner',
+          ],
+        },
+        SKIP_QUESTION: {
+          guard: "isHost",
+          target: ".questionPrep",
+          actions: "skipQuestion",
         },
       },
     },

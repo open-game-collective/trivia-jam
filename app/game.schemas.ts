@@ -26,6 +26,9 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("END_GAME"),
   }),
+  z.object({
+    type: z.literal("SKIP_QUESTION"),
+  }),
 
   // Player Events
   z.object({

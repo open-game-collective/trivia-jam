@@ -7,7 +7,7 @@ import {
 } from "./game.schemas";
 
 export const Game = createMachineServer({
-  machine: gameMachine,
+  machine: gameMachine as any, // todo type this
   schemas: {
     clientEvent: GameClientEventSchema,
     serviceEvent: GameServiceEventSchema,
