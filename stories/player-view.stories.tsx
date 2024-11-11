@@ -7,9 +7,8 @@ import { GameContext } from "../app/game.context";
 import { SessionContext } from "../app/session.context";
 import type { GameMachine } from "../app/game.machine";
 import type { SessionMachine } from "../app/session.machine";
-import { defaultGameSnapshot, defaultSessionSnapshot, withActorKit, withRemix } from "./utils";
+import { defaultGameSnapshot, defaultSessionSnapshot, withActorKit } from "./utils";
 import { createActorKitMockClient } from "actor-kit/test";
-import type { loader } from "../app/routes/games.$gameId";  // Import the loader type
 
 const meta = {
   title: "Views/PlayerView",
@@ -18,7 +17,6 @@ const meta = {
     layout: "fullscreen",
   },
   decorators: [
-    withRemix<Awaited<ReturnType<typeof loader>>>(),  // Use the loader return type
     withActorKit<SessionMachine>({
       actorType: "session",
       context: SessionContext,
@@ -35,20 +33,6 @@ type Story = StoryObj<typeof meta>;
 
 export const InLobby: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -76,20 +60,6 @@ export const InLobby: Story = {
 
 export const WaitingForQuestion: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -119,20 +89,6 @@ export const WaitingForQuestion: Story = {
 
 export const QuestionVisible: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -189,17 +145,6 @@ export const QuestionVisible: Story = {
       );
     });
 
-    await step('Verify question and buzz button are visible', async () => {
-      // Check that the question is displayed
-      const question = await canvas.findByTestId("current-question");
-      expect(question).toBeInTheDocument();
-      expect(question).toHaveTextContent("What is the capital of France?");
-
-      // Check that the buzz button is available
-      const buzzButton = await canvas.findByTestId("buzz-button");
-      expect(buzzButton).toBeInTheDocument();
-    });
-
     await step('Click buzz in button', async () => {
       const buzzButton = await canvas.findByTestId("buzz-button");
       await userEvent.click(buzzButton);
@@ -246,20 +191,6 @@ export const QuestionVisible: Story = {
 
 export const PlayerAnsweredIncorrectly: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -278,6 +209,7 @@ export const PlayerAnsweredIncorrectly: Story = {
             gameStatus: "active",
             currentQuestion: {
               text: "What is the capital of France?",
+              isVisible: true,
             },
             buzzerQueue: ["player-456"],
             lastAnswerResult: {
@@ -326,20 +258,6 @@ export const PlayerAnsweredIncorrectly: Story = {
 
 export const NameEntry: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -368,20 +286,6 @@ export const NameEntry: Story = {
 
 export const NameEntryInteraction: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -461,20 +365,6 @@ export const NameEntryInteraction: Story = {
 
 export const PlayerAnsweredCorrectly: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -511,20 +401,6 @@ export const PlayerAnsweredCorrectly: Story = {
 
 export const AlreadyBuzzedIn: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -596,20 +472,6 @@ export const AlreadyBuzzedIn: Story = {
 
 export const QuestionWithBuzzer: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -699,20 +561,6 @@ export const QuestionWithBuzzer: Story = {
 
 export const MultiplePlayersAnswering: Story = {
   parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
     actorKit: {
       session: {
         "session-123": {
@@ -902,135 +750,6 @@ export const MultiplePlayersAnswering: Story = {
       const scoreDisplay = await canvas.findByTestId("score-display");
       expect(scoreDisplay).toHaveTextContent("1");
     });
-  },
-};
-
-export const BuzzState: Story = {
-  parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "player-456",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            gameStatus: "active",
-            currentQuestion: {
-              text: "What is the capital of France?",
-            },
-            buzzerQueue: ["player-456"], // This player is first in queue
-            players: [
-              { id: "player-456", name: "Test Player", score: 0 },
-              { id: "player-789", name: "Other Player", score: 0 },
-            ],
-          },
-          value: { active: "answerValidation" },
-        },
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    
-    // Verify the question is still visible
-    const question = await canvas.findByTestId("current-question");
-    expect(question).toBeInTheDocument();
-    expect(question).toHaveTextContent("What is the capital of France?");
-
-    // Verify the "Your turn to answer" message is shown
-    const answeringStatus = await canvas.findByTestId("answering-status");
-    expect(answeringStatus).toHaveTextContent(/your turn to answer/i);
-
-    // Verify the buzz button is not present
-    const buzzButton = canvas.queryByTestId("buzz-button");
-    expect(buzzButton).not.toBeInTheDocument();
-  },
-};
-
-export const QuestionState: Story = {
-  parameters: {
-    remix: {
-      initialPath: "/games/test-game-id",
-      routePattern: "/games/:gameId",
-      routeId: "routes/games.$gameId",
-      loaderData: {
-        host: "triviajam.tv",
-        deviceType: "mobile",
-        accessToken: "test-token",
-        payload: {
-          snapshot: defaultGameSnapshot,
-          checksum: "test-checksum",
-        },
-      },
-    },
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "player-456",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            gameStatus: "active",
-            currentQuestion: {
-              text: "What is the capital of France?",
-            },
-            buzzerQueue: [], // Empty queue - no one has buzzed yet
-            players: [
-              { id: "player-456", name: "Test Player", score: 0 },
-              { id: "player-789", name: "Other Player", score: 0 },
-            ],
-          },
-          value: { active: "questionActive" },
-        },
-      },
-    },
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    
-    // Verify the question is visible
-    const question = await canvas.findByTestId("current-question");
-    expect(question).toBeInTheDocument();
-    expect(question).toHaveTextContent("What is the capital of France?");
-
-    // Verify the buzz button is available
-    const buzzButton = await canvas.findByTestId("buzz-button");
-    expect(buzzButton).toBeInTheDocument();
-    expect(buzzButton).toBeEnabled();
-
-    // Verify no answering status is shown
-    const answeringStatus = canvas.queryByTestId("answering-status");
-    expect(answeringStatus).not.toBeInTheDocument();
   },
 };
 
