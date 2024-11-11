@@ -117,9 +117,7 @@ export const QuestionVisible: Story = {
       },
     },
   },
-  play: async ({ canvasElement, mount, step }) => {
-    const canvas = within(canvasElement);
-    
+  play: async ({ mount, step, canvas }) => {
     const gameClient = createActorKitMockClient<GameMachine>({
       initialSnapshot: {
         ...defaultGameSnapshot,
@@ -226,9 +224,7 @@ export const PlayerAnsweredIncorrectly: Story = {
       },
     },
   },
-  play: async ({ canvasElement, mount, step }) => {
-    const canvas = within(canvasElement);
-    
+  play: async ({ canvas, mount, step }) => {
     await step('Mount component with initial state', async () => {
       await mount(<PlayerView />);
     });
@@ -310,9 +306,7 @@ export const NameEntryInteraction: Story = {
       },
     },
   },
-  play: async ({ canvasElement, mount, step }) => {
-    const canvas = within(canvasElement);
-    
+  play: async ({ canvas, mount, step }) => {
     const gameClient = createActorKitMockClient<GameMachine>({
       initialSnapshot: {
         ...defaultGameSnapshot,
@@ -443,9 +437,7 @@ export const AlreadyBuzzedIn: Story = {
       },
     },
   },
-  play: async ({ canvasElement, mount, step }) => {
-    const canvas = within(canvasElement);
-    
+  play: async ({ canvas, mount, step }) => {
     await step('Mount component with initial state', async () => {
       await mount(<PlayerView />);
     });
@@ -502,9 +494,7 @@ export const QuestionWithBuzzer: Story = {
       },
     },
   },
-  play: async ({ canvasElement, mount, step }) => {
-    const canvas = within(canvasElement);
-    
+  play: async ({ mount, step, canvas }) => {
     const gameClient = createActorKitMockClient<GameMachine>({
       initialSnapshot: {
         ...defaultGameSnapshot,
@@ -525,7 +515,7 @@ export const QuestionWithBuzzer: Story = {
     });
 
     await step('Mount component with initial state', async () => {
-      await mount(
+      const view = await mount(
         <GameContext.ProviderFromClient client={gameClient}>
           <PlayerView />
         </GameContext.ProviderFromClient>
@@ -590,9 +580,7 @@ export const MultiplePlayersAnswering: Story = {
       },
     },
   },
-  play: async ({ canvasElement, mount, step }) => {
-    const canvas = within(canvasElement);
-    
+  play: async ({ canvas, mount, step }) => {
     const gameClient = createActorKitMockClient<GameMachine>({
       initialSnapshot: {
         ...defaultGameSnapshot,
