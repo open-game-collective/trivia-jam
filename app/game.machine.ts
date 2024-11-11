@@ -194,13 +194,22 @@ export const gameMachine = setup({
         answerValidation: {},
       },
       on: {
+        JOIN_GAME: {
+          actions: {
+            type: 'addPlayerToGame',
+            params: ({ event }: { event: Extract<GameEvent, { type: 'JOIN_GAME' }> }) => ({
+              id: event.caller.id,
+              name: event.playerName,
+            }),
+          },
+        },
         SUBMIT_QUESTION: {
           guard: "isHost",
           target: ".questionActive",
           actions: {
             type: 'setQuestion',
-            params: ({ event }: { event: GameEvent }) => ({
-              question: event.type === 'SUBMIT_QUESTION' ? event.question : '',
+            params: ({ event }: { event: Extract<GameEvent, { type: 'SUBMIT_QUESTION' }> }) => ({
+              question: event.question,
             }),
           },
         },
