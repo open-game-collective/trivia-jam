@@ -240,7 +240,7 @@ const GameplayDisplay = ({
   lastAnswerResult?: { playerId: string; playerName: string; correct: boolean } | null;
   previousAnswers?: Array<{ playerId: string; playerName: string; correct: boolean }>;
 }) => {
-  // Create a sorted copy of players array
+  // Create a copy before sorting
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
   // If someone just got it right, show the celebration screen
@@ -473,13 +473,14 @@ const customScrollbarStyles = `
   }
 `;
 
-const GameFinishedDisplay = ({ 
-  players 
-}: { 
-  players: Array<{ id: string; name: string; score: number }> 
+const GameFinishedDisplay = ({
+  players,
+}: {
+  players: Array<{ id: string; name: string; score: number }>;
 }) => {
-  const winner = players.reduce((a, b) => a.score > b.score ? a : b);
-  
+  // Create a copy before sorting
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
       {/* Background Animation */}
@@ -504,50 +505,40 @@ const GameFinishedDisplay = ({
         initial={{ opacity: 0, scale: 0.9 }}
         animate={{ opacity: 1, scale: 1 }}
         className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
+        data-testid="game-over-title"
       >
-        <h1 
-          className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400"
-          data-testid="game-over-title"
-        >
+        <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
           Game Over!
         </h1>
 
-        <div 
-          className="text-2xl text-center mb-8"
-          data-testid="winner-announcement"
-        >
-          <span className="font-bold text-yellow-400">{winner.name}</span> wins!
-        </div>
-
-        <div className="space-y-3">
-          <h2 
-            className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2"
-            data-testid="final-scores-heading"
-          >
+        <div className="space-y-3 mb-8">
+          <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2" data-testid="final-scores-heading">
             <Trophy className="w-6 h-6" /> Final Scores
           </h2>
-          {players
-            .sort((a, b) => b.score - a.score)
-            .map((player, index) => (
-              <motion.div
-                key={player.id}
-                data-testid={`player-score-${player.id}`}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`flex justify-between items-center p-4 rounded-xl border ${
-                  index === 0
-                    ? 'bg-yellow-500/10 border-yellow-500/30'
-                    : 'bg-gray-800/30 border-gray-700/30'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold text-indigo-400">#{index + 1}</span>
-                  <span className="font-medium">{player.name}</span>
-                </div>
-                <span className="text-xl font-bold text-indigo-400">{player.score}</span>
-              </motion.div>
-            ))}
+          {sortedPlayers.map((player, index) => (
+            <motion.div
+              key={player.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className={`flex justify-between items-center p-4 rounded-xl border ${
+                index === 0
+                  ? "bg-yellow-500/10 border-yellow-500/30"
+                  : "bg-gray-800/30 border-gray-700/30"
+              }`}
+              data-testid={`player-score-${player.id}`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-indigo-400">
+                  #{index + 1}
+                </span>
+                <span className="font-medium">{player.name}</span>
+              </div>
+              <span className="text-xl font-bold text-indigo-400">
+                {player.score}
+              </span>
+            </motion.div>
+          ))}
         </div>
       </motion.div>
     </div>

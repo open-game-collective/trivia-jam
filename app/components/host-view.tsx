@@ -100,7 +100,6 @@ export const HostView = ({ host }: { host: string }) => {
             currentQuestion={currentQuestion}
             buzzerQueue={buzzerQueue}
             players={players}
-            send={send}
           />
         )}
 
@@ -110,12 +109,40 @@ export const HostView = ({ host }: { host: string }) => {
   );
 };
 
-const PlayerSlot = ({ player }: { player?: { id: string; name: string; score: number } }) => (
+const PlayerSlot = ({ 
+  player,
+  onRemove,
+  isHost 
+}: { 
+  player?: { id: string; name: string; score: number };
+  onRemove?: (playerId: string) => void;
+  isHost?: boolean;
+}) => (
   <div className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-gray-900/30 border border-gray-700/30">
     {player ? (
       <>
-        <span className="font-medium">{player.name}</span>
-        <span className="text-indigo-400 font-bold">{player.score}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-medium">{player.name}</span>
+          {isHost && (
+            <span className="px-2 py-1 text-xs font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
+              Host
+            </span>
+          )}
+          {onRemove && !isHost && (
+            <motion.button
+              onClick={() => onRemove(player.id)}
+              className="p-1 text-red-400 hover:text-red-300 transition-colors"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              data-testid={`remove-player-${player.id}`}
+            >
+              <X className="w-4 h-4" />
+            </motion.button>
+          )}
+        </div>
+        <div className="flex items-center">
+          <span className="text-indigo-400 font-bold">{player.score}</span>
+        </div>
       </>
     ) : (
       <span className="text-white/30 font-medium">Empty Slot</span>
@@ -123,9 +150,16 @@ const PlayerSlot = ({ player }: { player?: { id: string; name: string; score: nu
   </div>
 );
 
-const PlayerList = ({ players, maxPlayers = 10 }: { 
+const PlayerList = ({ 
+  players, 
+  maxPlayers = 10,
+  hostId,
+  onRemovePlayer,
+}: { 
   players: Array<{ id: string; name: string; score: number }>;
   maxPlayers?: number;
+  hostId: string;
+  onRemovePlayer?: (playerId: string) => void;
 }) => {
   // Create array of length maxPlayers filled with players or undefined
   const slots = Array(maxPlayers).fill(undefined).map((_, i) => players[i]);
@@ -141,7 +175,12 @@ const PlayerList = ({ players, maxPlayers = 10 }: {
       </h2>
       <div className="space-y-2">
         {slots.map((player, index) => (
-          <PlayerSlot key={player?.id || `empty-${index}`} player={player} />
+          <PlayerSlot 
+            key={player?.id || `empty-${index}`} 
+            player={player}
+            isHost={player?.id === hostId}
+            onRemove={onRemovePlayer}
+          />
         ))}
       </div>
     </motion.div>
@@ -158,6 +197,7 @@ const LobbyControls = ({
   host: string;
 }) => {
   const gameState = GameContext.useSelector((state) => state.public);
+  const send = GameContext.useSend();
   const hasEnoughPlayers = players.length > 0;
   const [copied, setCopied] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
@@ -292,7 +332,11 @@ const LobbyControls = ({
           Game Lobby
         </h1>
 
-        <PlayerList players={players} />
+        <PlayerList 
+          players={players} 
+          hostId={gameState.hostId}
+          onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
+        />
 
         <div className="space-y-3">
           <motion.button
@@ -339,14 +383,17 @@ const QuestionControls = ({
   currentQuestion,
   buzzerQueue,
   players,
-  send,
 }: {
   currentQuestion: { text: string } | null;
   buzzerQueue: string[];
   players: Array<{ id: string; name: string; score: number }>;
-  send: (event: any) => void;
 }) => {
   const [questionText, setQuestionText] = useState("");
+  const send = GameContext.useSend();
+  const gameState = GameContext.useSelector((state) => state.public);
+
+  // Create a copy before sorting
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
   const handleSubmitQuestion = () => {
     if (questionText.trim()) {
@@ -362,9 +409,6 @@ const QuestionControls = ({
   const handleValidateAnswer = (playerId: string, correct: boolean) => {
     send({ type: "VALIDATE_ANSWER", playerId, correct });
   };
-
-  // Sort players by score
-  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
 
   return (
     <div className="min-h-screen flex flex-col items-center p-4 relative">
@@ -464,7 +508,10 @@ const QuestionControls = ({
               if (index === 0 && player) {
                 return (
                   <div key={playerId} className="space-y-3">
-                    <div className="text-lg sm:text-xl text-white/90">
+                    <div 
+                      className="text-lg sm:text-xl text-white/90"
+                      data-testid="current-answerer-validation"
+                    >
                       <span className="font-bold text-indigo-400">
                         {player.name}
                       </span>{" "}
@@ -501,7 +548,11 @@ const QuestionControls = ({
         )}
 
         {/* Player List */}
-        <PlayerList players={sortedPlayers} />
+        <PlayerList 
+          players={sortedPlayers} 
+          hostId={gameState.hostId}
+          onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
+        />
 
         {/* End Game Button */}
         <motion.button
@@ -521,66 +572,70 @@ const GameFinishedDisplay = ({
   players,
 }: {
   players: Array<{ id: string; name: string; score: number }>;
-}) => (
-  <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
-    {/* Background Animation */}
-    <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 opacity-10">
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
-          animate={{
-            rotate: [0, 360],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
+}) => {
+  // Create a copy before sorting
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+        </div>
       </div>
-    </div>
 
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
-    >
-      <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-        Game Over!
-      </h1>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
+      >
+        <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+          Game Over!
+        </h1>
 
-      <div className="space-y-3 mb-8">
-        <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
-          <Trophy className="w-6 h-6" /> Final Scores
-        </h2>
-        {players
-          .sort((a, b) => b.score - a.score)
-          .map((player, index) => (
-            <motion.div
-              key={player.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              className={`flex justify-between items-center p-4 rounded-xl border ${
-                index === 0
-                  ? "bg-yellow-500/10 border-yellow-500/30"
-                  : "bg-gray-800/30 border-gray-700/30"
-              }`}
-            >
-              <div className="flex items-center gap-3">
-                <span className="text-2xl font-bold text-indigo-400">
-                  #{index + 1}
+        <div className="space-y-3 mb-8">
+          <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
+            <Trophy className="w-6 h-6" /> Final Scores
+          </h2>
+          {sortedPlayers
+            .map((player, index) => (
+              <motion.div
+                key={player.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className={`flex justify-between items-center p-4 rounded-xl border ${
+                  index === 0
+                    ? "bg-yellow-500/10 border-yellow-500/30"
+                    : "bg-gray-800/30 border-gray-700/30"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-bold text-indigo-400">
+                    #{index + 1}
+                  </span>
+                  <span className="font-medium">{player.name}</span>
+                </div>
+                <span className="text-xl font-bold text-indigo-400">
+                  {player.score}
                 </span>
-                <span className="font-medium">{player.name}</span>
-              </div>
-              <span className="text-xl font-bold text-indigo-400">
-                {player.score}
-              </span>
-            </motion.div>
-          ))}
-      </div>
-    </motion.div>
-  </div>
-);
+              </motion.div>
+            ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 

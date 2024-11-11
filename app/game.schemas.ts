@@ -47,6 +47,12 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
       questionCount: z.number().min(1).max(50),
     }),
   }),
+
+  // Remove Player Event
+  z.object({
+    type: z.literal("REMOVE_PLAYER"),
+    playerId: z.string(),
+  }),
 ]);
 
 export const GameServiceEventSchema = z.discriminatedUnion("type", [

@@ -277,12 +277,10 @@ const GameFinishedDisplay = ({
   winner: string;
   userId: string;
 }) => {
-  const playerRank = players
-    .sort((a, b) => b.score - a.score)
-    .findIndex(p => p.id === userId) + 1;
-
+  // Create a new array before sorting
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
   const isWinner = winner === userId;
-  
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
       {/* Background Animation */}
@@ -313,36 +311,34 @@ const GameFinishedDisplay = ({
         </h1>
 
         <div className="text-2xl text-center mb-8">
-          You placed <span className="font-bold text-yellow-400">{playerRank}{getOrdinalSuffix(playerRank)}</span>
+          You placed <span className="font-bold text-yellow-400">{sortedPlayers.findIndex(p => p.id === userId) + 1}{getOrdinalSuffix(sortedPlayers.findIndex(p => p.id === userId) + 1)}</span>
         </div>
 
         <div className="space-y-3 mb-8">
           <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
             <Crown className="w-6 h-6" /> Final Scores
           </h2>
-          {players
-            .sort((a, b) => b.score - a.score)
-            .map((player, index) => (
-              <motion.div
-                key={player.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`flex justify-between items-center p-4 rounded-xl border ${
-                  player.id === userId
-                    ? 'bg-indigo-500/20 border-indigo-500/30'
-                    : index === 0
-                    ? 'bg-yellow-500/10 border-yellow-500/30'
-                    : 'bg-gray-800/30 border-gray-700/30'
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold text-indigo-400">#{index + 1}</span>
-                  <span className="font-medium">{player.name}</span>
-                </div>
-                <span className="text-xl font-bold text-indigo-400">{player.score}</span>
-              </motion.div>
-            ))}
+          {sortedPlayers.map((player, index) => (
+            <motion.div
+              key={player.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className={`flex justify-between items-center p-4 rounded-xl border ${
+                player.id === userId
+                  ? 'bg-indigo-500/20 border-indigo-500/30'
+                  : index === 0
+                  ? 'bg-yellow-500/10 border-yellow-500/30'
+                  : 'bg-gray-800/30 border-gray-700/30'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-indigo-400">#{index + 1}</span>
+                <span className="font-medium">{player.name}</span>
+              </div>
+              <span className="text-xl font-bold text-indigo-400">{player.score}</span>
+            </motion.div>
+          ))}
         </div>
       </motion.div>
     </div>

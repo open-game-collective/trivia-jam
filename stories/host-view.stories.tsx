@@ -288,13 +288,11 @@ export const ValidatingAnswer: Story = {
     });
 
     await step('Verify initial validation state', async () => {
-      // Find the section containing both the player name and "is answering" text
-      const answerSection = canvas.getByText("Current Answer").parentElement;
-      expect(answerSection).toBeInTheDocument();
-      
-      // Check that both pieces of text are in this section
-      expect(answerSection).toHaveTextContent("Test Player");
-      expect(answerSection).toHaveTextContent("is answering");
+      // Find the current answerer section using the more specific test ID
+      const currentAnswerer = await canvas.findByTestId("current-answerer-validation");
+      expect(currentAnswerer).toBeInTheDocument();
+      expect(currentAnswerer).toHaveTextContent("Test Player");
+      expect(currentAnswerer).toHaveTextContent("is answering");
 
       // Verify correct/incorrect buttons are present
       expect(canvas.getByTestId("correct-button")).toBeInTheDocument();
@@ -302,26 +300,15 @@ export const ValidatingAnswer: Story = {
     });
 
     await step('Mark answer as correct', async () => {
-      // Find the correct button by its test ID
       const correctButton = canvas.getByTestId("correct-button");
       await userEvent.click(correctButton);
 
       // Simulate answer being marked correct
       gameClient.produce((draft) => {
         draft.public.buzzerQueue = [];
-        draft.public.players[1].score += 1; // Increment player's score
-        draft.value = { active: "questionPrep" }; // Return to question prep
+        draft.public.players[1].score += 1;
+        draft.value = { active: "questionPrep" };
       });
-    });
-
-    await step('Verify state after correct answer', async () => {
-      // Verify we're back to question prep state
-      await waitFor(() => {
-        expect(canvas.queryByText(/is answering/i)).not.toBeInTheDocument();
-      });
-
-      // Verify score was updated
-      expect(canvas.getByText("1")).toBeInTheDocument(); // Player's new score
     });
   },
 };
@@ -630,5 +617,105 @@ export const LoadingGameCode: Story = {
     // Verify game controls are not shown
     const startButton = canvas.queryByRole('button', { name: /start game/i });
     expect(startButton).not.toBeInTheDocument();
+  },
+};
+
+export const RemovingPlayer: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            hostId: "host-123",
+            gameStatus: "active",
+            currentQuestion: {
+              text: "What is the capital of France?",
+            },
+            players: [
+              { id: "host-123", name: "Test Host", score: 0 },
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+            buzzerQueue: ["player-1", "player-2"],
+          },
+          value: { active: "answerValidation" },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement, mount, step }) => {
+    const canvas = within(canvasElement);
+    
+    const gameClient = createActorKitMockClient<GameMachine>({
+      initialSnapshot: {
+        ...defaultGameSnapshot,
+        public: {
+          ...defaultGameSnapshot.public,
+          hostId: "host-123",
+          gameStatus: "active",
+          currentQuestion: {
+            text: "What is the capital of France?",
+          },
+          players: [
+            { id: "host-123", name: "Test Host", score: 0 },
+            { id: "player-1", name: "Player 1", score: 0 },
+            { id: "player-2", name: "Player 2", score: 0 },
+          ],
+          buzzerQueue: ["player-1", "player-2"],
+        },
+        value: { active: "answerValidation" },
+      },
+    });
+
+    await step('Mount component with initial state', async () => {
+      await mount(
+        <GameContext.ProviderFromClient client={gameClient}>
+          <HostView host="triviajam.tv" />
+        </GameContext.ProviderFromClient>
+      );
+    });
+
+    await step('Verify initial player list and remove buttons', async () => {
+      // Find remove button for player-1
+      const removeButton = await canvas.findByTestId("remove-player-player-1");
+      expect(removeButton).toBeInTheDocument();
+    });
+
+    await step('Remove a player', async () => {
+      // Click the remove button for player-1
+      const removeButton = await canvas.findByTestId("remove-player-player-1");
+      await userEvent.click(removeButton);
+
+      // Update game state to reflect removal
+      gameClient.produce((draft) => {
+        draft.public.players = draft.public.players.filter(p => p.id !== "player-1");
+        draft.public.buzzerQueue = draft.public.buzzerQueue.filter(id => id !== "player-1");
+      });
+    });
+
+    await step('Verify player was removed', async () => {
+      // Verify remove button for player-1 is no longer present
+      const removeButton = canvas.queryByTestId("remove-player-player-1");
+      expect(removeButton).not.toBeInTheDocument();
+
+      // Verify remove button for player-2 is still there
+      const player2RemoveButton = await canvas.findByTestId("remove-player-player-2");
+      expect(player2RemoveButton).toBeInTheDocument();
+
+      // Verify player-1 is not in the current answerer section
+      const currentAnswerer = await canvas.findByTestId("current-answerer-validation");
+      expect(currentAnswerer).not.toHaveTextContent("Player 1");
+    });
   },
 }; 

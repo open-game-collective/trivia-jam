@@ -122,6 +122,15 @@ export const gameMachine = setup({
         }
       })
     })),
+    removePlayer: assign(({ context }, { playerId }: { playerId: string }) => ({
+      public: produce(context.public, draft => {
+        draft.players = draft.players.filter(p => p.id !== playerId);
+        draft.buzzerQueue = draft.buzzerQueue.filter(id => id !== playerId);
+        if (draft.previousAnswers) {
+          draft.previousAnswers = draft.previousAnswers.filter(a => a.playerId !== playerId);
+        }
+      })
+    })),
   },
 }).createMachine({
   id: "triviaGame",
@@ -182,6 +191,15 @@ export const gameMachine = setup({
                 { type: 'setQuestionNumber', params: { number: 1 } },
               ],
             },
+            REMOVE_PLAYER: {
+              guard: "isHost",
+              actions: {
+                type: 'removePlayer',
+                params: ({ event }: { event: Extract<GameEvent, { type: 'REMOVE_PLAYER' }> }) => ({
+                  playerId: event.playerId,
+                }),
+              },
+            },
           },
         },
       },
@@ -241,6 +259,15 @@ export const gameMachine = setup({
           guard: "isHost",
           target: ".questionPrep",
           actions: "skipQuestion",
+        },
+        REMOVE_PLAYER: {
+          guard: "isHost",
+          actions: {
+            type: 'removePlayer',
+            params: ({ event }: { event: Extract<GameEvent, { type: 'REMOVE_PLAYER' }> }) => ({
+              playerId: event.playerId,
+            }),
+          },
         },
       },
     },
