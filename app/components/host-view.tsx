@@ -332,11 +332,13 @@ const LobbyControls = ({
           Game Lobby
         </h1>
 
-        <PlayerList 
-          players={players} 
-          hostId={gameState.hostId}
-          onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
-        />
+        <div className="mb-8">
+          <PlayerList 
+            players={players} 
+            hostId={gameState.hostId}
+            onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
+          />
+        </div>
 
         <div className="space-y-3">
           <motion.button

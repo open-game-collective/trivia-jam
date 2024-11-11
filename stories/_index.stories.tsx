@@ -110,9 +110,8 @@ export const MobileView: Story = {
   },
 };
 
-/**
- * Story demonstrating the mobile view with a pre-filled game code
- */
+// Commenting out join game related stories
+/*
 export const MobileWithGameCode: Story = {
   parameters: {
     remix: {
@@ -135,9 +134,6 @@ export const MobileWithGameCode: Story = {
   },
 };
 
-/**
- * Interactive story demonstrating the game joining flow on mobile
- */
 export const JoinGameInteraction: Story = {
   decorators: [
     (Story) => {
@@ -205,3 +201,4 @@ export const JoinGameInteraction: Story = {
     });
   },
 };
+*/
