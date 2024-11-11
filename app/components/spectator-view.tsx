@@ -480,6 +480,7 @@ const GameFinishedDisplay = ({
 }) => {
   // Create a copy before sorting
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  const winner = sortedPlayers[0]; // Get the player with highest score
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
@@ -510,6 +511,20 @@ const GameFinishedDisplay = ({
         <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
           Game Over!
         </h1>
+
+        {/* Add winner announcement section */}
+        <div 
+          className="text-center mb-8"
+          data-testid="winner-announcement"
+        >
+          <div className="text-6xl mb-4">👑</div>
+          <h2 className="text-2xl font-bold text-indigo-300">
+            {winner.name} Wins!
+          </h2>
+          <p className="text-xl text-indigo-300/70">
+            with {winner.score} points
+          </p>
+        </div>
 
         <div className="space-y-3 mb-8">
           <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2" data-testid="final-scores-heading">
