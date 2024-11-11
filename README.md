@@ -97,7 +97,7 @@ The component library and UI documentation can be viewed at:
 
 ### Live Application
 Play Trivia Jam at:
-[https://www.triviajam.tv](https://www.triviajam.tv)
+[https://triviajam.tv](https://triviajam.tv)
 
 ## State Management
 
