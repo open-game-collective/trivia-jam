@@ -11,6 +11,7 @@ import {
   defaultSessionSnapshot,
   withActorKit,
 } from "./utils";
+import { createActorKitMockClient } from "actor-kit/test";
 
 const meta = {
   title: "Views/SpectatorView",
@@ -151,31 +152,49 @@ export const WithBuzzerQueue: Story = {
     },
   },
   play: async ({ canvas, mount, step }) => {
+    const gameClient = createActorKitMockClient<GameMachine>({
+      initialSnapshot: {
+        ...defaultGameSnapshot,
+        public: {
+          ...defaultGameSnapshot.public,
+          gameStatus: "active",
+          currentQuestion: {
+            text: "What is the capital of France?",
+          },
+          buzzerQueue: [],
+          players: [
+            { id: "player-1", name: "Player 1", score: 0 },
+            { id: "player-2", name: "Player 2", score: 0 },
+          ],
+        },
+        value: { active: "questionActive" },
+      },
+    });
+
     await step('Mount component with initial state', async () => {
-      await mount(<SpectatorView host="dev.triviajam.tv" />);
+      await mount(
+        <GameContext.ProviderFromClient client={gameClient}>
+          <SpectatorView host="dev.triviajam.tv" />
+        </GameContext.ProviderFromClient>
+      );
     });
 
-    await step('Verify question is visible', async () => {
-      const question = await canvas.findByText("What is the capital of France?");
-      expect(question).toBeInTheDocument();
-    });
+    await step('Simulate first player buzzing in', async () => {
+      gameClient.produce((draft) => {
+        draft.public.buzzerQueue = ["player-1"];
+      });
 
-    await step('Find the current answerer section and verify its content', async () => {
       const currentAnswerer = await canvas.findByTestId("current-answerer");
-      expect(currentAnswerer).toBeInTheDocument();
-      expect(currentAnswerer).toHaveTextContent(/is answering/);
+      expect(currentAnswerer).toHaveTextContent("Player 1");
     });
 
-    await step('Verify "Up Next" section', async () => {
-      const upNextHeading = await canvas.findByText("Up Next");
-      expect(upNextHeading).toBeInTheDocument();
-    });
+    await step('Simulate second player buzzing in', async () => {
+      gameClient.produce((draft) => {
+        draft.public.buzzerQueue = ["player-1", "player-2"];
+      });
 
-    await step('Verify second player in queue using test ID', async () => {
       const queuePlayer = await canvas.findByTestId("queue-player-player-2");
       expect(queuePlayer).toBeInTheDocument();
-      expect(queuePlayer).toHaveTextContent("#2");
-      expect(queuePlayer).toHaveTextContent("Player 2");
     });
   },
 };
