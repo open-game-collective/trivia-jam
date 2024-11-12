@@ -15,7 +15,9 @@ const SOUND_EFFECTS = {
   // Use same sound for skip
   SKIP: "https://cdn.freesound.org/previews/362/362205_6629901-lq.mp3",
   // New attention-grabbing sound for question introduction
-  QUESTION: "https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3"
+  QUESTION: "https://www.soundjay.com/misc/sounds/bell-ringing-05.mp3",
+  // Updated game over sound to a different fanfare
+  GAME_OVER: "https://cdn.freesound.org/previews/171/171671_2437358-lq.mp3"
 } as const;
 
 // Update the useSoundEffects hook to preload sounds
@@ -79,6 +81,16 @@ export const SpectatorView = ({ host }: { host: string }) => {
   const gameState = GameContext.useSelector((state) => state);
   const { gameStatus, currentQuestion, buzzerQueue, players } =
     gameState.public;
+  const playSound = useSoundEffects();
+  const prevGameStatusRef = useRef(gameStatus);
+
+  // Add effect to play game over sound
+  useEffect(() => {
+    if (prevGameStatusRef.current === "active" && gameStatus === "finished") {
+      playSound("GAME_OVER");
+    }
+    prevGameStatusRef.current = gameStatus;
+  }, [gameStatus, playSound]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -348,26 +360,44 @@ const GameplayDisplay = ({
     prevBuzzerQueueRef.current = buzzerQueue;
   }, [buzzerQueue, playSound]);
 
-  // Play sound for answer results
+  // Update these effects in GameplayDisplay component
   useEffect(() => {
-    if (
-      lastAnswerResult &&
-      lastAnswerResult !== prevLastAnswerResultRef.current
-    ) {
-      playSound(lastAnswerResult.correct ? "CORRECT" : "INCORRECT");
+    // Skip if no lastAnswerResult
+    if (!lastAnswerResult) {
+      prevLastAnswerResultRef.current = null;
+      return;
     }
+
+    // Skip if same result
+    if (prevLastAnswerResultRef.current?.playerId === lastAnswerResult.playerId &&
+        prevLastAnswerResultRef.current?.correct === lastAnswerResult.correct) {
+      return;
+    }
+
+    // Play appropriate sound based on the new result
+    if (lastAnswerResult.correct) {
+      playSound("CORRECT");
+    } else {
+      playSound("INCORRECT");
+    }
+
+    // Update ref after playing sound
     prevLastAnswerResultRef.current = lastAnswerResult;
   }, [lastAnswerResult, playSound]);
 
-  // Play sound for skipped questions
   useEffect(() => {
-    if (!prevQuestionRef.current && currentQuestion) {
-      // New question appeared
+    const isSkip = prevQuestionRef.current && !currentQuestion;
+    const isNewQuestion = !prevQuestionRef.current && currentQuestion;
+    
+    if (isSkip) {
+      // Only play skip sound if there's no answer result or if the last answer was incorrect
+      if (!lastAnswerResult || !lastAnswerResult.correct) {
+        playSound("SKIP");
+      }
+    } else if (isNewQuestion) {
       playSound("QUESTION");
-    } else if (prevQuestionRef.current && !currentQuestion && !lastAnswerResult) {
-      // Question was skipped
-      playSound("SKIP");
     }
+    
     prevQuestionRef.current = currentQuestion;
   }, [currentQuestion, lastAnswerResult, playSound]);
 
