@@ -1,14 +1,15 @@
-import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect, fn } from "@storybook/test";
 import { userEvent } from "@storybook/testing-library";
+import { withActorKit } from "actor-kit/storybook";
+import { createActorKitMockClient } from "actor-kit/test";
+import React from "react";
 import { HostView } from "../app/components/host-view";
 import { GameContext } from "../app/game.context";
 import type { GameMachine } from "../app/game.machine";
 import { SessionContext } from "../app/session.context";
 import type { SessionMachine } from "../app/session.machine";
-import { defaultGameSnapshot, defaultSessionSnapshot, withActorKit } from "./utils";
-import { createActorKitMockClient } from "actor-kit/test";
+import { defaultGameSnapshot, defaultSessionSnapshot } from "./utils";
 
 const meta = {
   title: "Views/HostView",

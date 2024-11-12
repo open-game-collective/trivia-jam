@@ -8,6 +8,7 @@ import type { Meta, StoryObj } from "@storybook/react";
 import { expect, waitFor } from "@storybook/test";
 import { userEvent, within } from "@storybook/testing-library";
 import { CallerSnapshotFrom } from "actor-kit";
+import { withActorKit } from "actor-kit/storybook";
 import { createActorKitMockClient } from "actor-kit/test";
 import React from "react";
 import type { LoaderData } from "../app/routes/_index";
@@ -15,7 +16,7 @@ import Index from "../app/routes/_index";
 import { SessionContext } from "../app/session.context";
 import type { SessionMachine } from "../app/session.machine";
 import type { RemixParameters } from "./utils";
-import { withActorKit, withRemix } from "./utils";
+import { withRemix } from "./utils";
 
 /**
  * Story type that combines both Remix and actor-kit parameters.

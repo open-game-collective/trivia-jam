@@ -1,14 +1,15 @@
-import React from "react";
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, fn } from "@storybook/test";
-import { userEvent, within } from "@storybook/testing-library";
+import { expect } from "@storybook/test";
+import { userEvent } from "@storybook/testing-library";
+import { withActorKit } from "actor-kit/storybook";
+import { createActorKitMockClient } from "actor-kit/test";
+import React from "react";
 import { PlayerView } from "../app/components/player-view";
 import { GameContext } from "../app/game.context";
-import { SessionContext } from "../app/session.context";
 import type { GameMachine } from "../app/game.machine";
+import { SessionContext } from "../app/session.context";
 import type { SessionMachine } from "../app/session.machine";
-import { defaultGameSnapshot, defaultSessionSnapshot, withActorKit } from "./utils";
-import { createActorKitMockClient } from "actor-kit/test";
+import { defaultGameSnapshot, defaultSessionSnapshot } from "./utils";
 
 const meta = {
   title: "Views/PlayerView",
@@ -48,9 +49,7 @@ export const InLobby: Story = {
           ...defaultGameSnapshot,
           public: {
             ...defaultGameSnapshot.public,
-            players: [
-              { id: "player-456", name: "Test Player", score: 0 },
-            ],
+            players: [{ id: "player-456", name: "Test Player", score: 0 }],
           },
         },
       },
@@ -76,9 +75,7 @@ export const WaitingForQuestion: Story = {
           public: {
             ...defaultGameSnapshot.public,
             gameStatus: "active",
-            players: [
-              { id: "player-456", name: "Test Player", score: 0 },
-            ],
+            players: [{ id: "player-456", name: "Test Player", score: 0 }],
           },
           value: { active: "questionPrep" },
         },
@@ -108,9 +105,7 @@ export const QuestionVisible: Story = {
             currentQuestion: {
               text: "What is the capital of France?",
             },
-            players: [
-              { id: "player-456", name: "Test Player", score: 0 },
-            ],
+            players: [{ id: "player-456", name: "Test Player", score: 0 }],
           },
           value: { active: "questionActive" },
         },
@@ -127,15 +122,13 @@ export const QuestionVisible: Story = {
           currentQuestion: {
             text: "What is the capital of France?",
           },
-          players: [
-            { id: "player-456", name: "Test Player", score: 0 },
-          ],
+          players: [{ id: "player-456", name: "Test Player", score: 0 }],
         },
         value: { active: "questionActive" },
       },
     });
 
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       await mount(
         <GameContext.ProviderFromClient client={gameClient}>
           <PlayerView />
@@ -143,7 +136,7 @@ export const QuestionVisible: Story = {
       );
     });
 
-    await step('Click buzz in button', async () => {
+    await step("Click buzz in button", async () => {
       const buzzButton = await canvas.findByTestId("buzz-button");
       await userEvent.click(buzzButton);
 
@@ -154,12 +147,12 @@ export const QuestionVisible: Story = {
       });
     });
 
-    await step('Verify player is in buzzer queue', async () => {
+    await step("Verify player is in buzzer queue", async () => {
       const answeringStatus = await canvas.findByTestId("answering-status");
       expect(answeringStatus).toHaveTextContent(/your turn to answer/i);
     });
 
-    await step('Simulate correct answer', async () => {
+    await step("Simulate correct answer", async () => {
       // Simulate host validating answer as correct
       gameClient.produce((draft) => {
         draft.public.buzzerQueue = [];
@@ -176,10 +169,10 @@ export const QuestionVisible: Story = {
       // Verify correct answer feedback
       const answerFeedback = await canvas.findByTestId("answer-feedback");
       expect(answerFeedback).toBeInTheDocument();
-      
+
       const playerFeedback = await canvas.findByTestId("player-feedback");
       expect(playerFeedback).toHaveTextContent(/correct/i);
-      
+
       // Verify score update
       const scoreDisplay = await canvas.findByTestId("score-display");
       expect(scoreDisplay).toHaveTextContent("1");
@@ -215,9 +208,7 @@ export const PlayerAnsweredIncorrectly: Story = {
               playerName: "Test Player",
               correct: false,
             },
-            players: [
-              { id: "player-456", name: "Test Player", score: 0 },
-            ],
+            players: [{ id: "player-456", name: "Test Player", score: 0 }],
           },
           value: { active: "answerValidation" },
         },
@@ -225,18 +216,18 @@ export const PlayerAnsweredIncorrectly: Story = {
     },
   },
   play: async ({ canvas, mount, step }) => {
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       await mount(<PlayerView />);
     });
 
-    await step('Verify incorrect answer feedback', async () => {
+    await step("Verify incorrect answer feedback", async () => {
       // Use test IDs to find elements
       const answerFeedback = await canvas.findByTestId("answer-feedback");
       expect(answerFeedback).toBeInTheDocument();
-      
+
       const playerFeedback = await canvas.findByTestId("player-feedback");
       expect(playerFeedback).toHaveTextContent(/incorrect/i);
-      
+
       // Verify score remains at 0
       const scoreDisplay = await canvas.findByTestId("score-display");
       expect(scoreDisplay).toHaveTextContent("0");
@@ -319,7 +310,7 @@ export const NameEntryInteraction: Story = {
       },
     });
 
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       await mount(
         <GameContext.ProviderFromClient client={gameClient}>
           <PlayerView />
@@ -327,17 +318,19 @@ export const NameEntryInteraction: Story = {
       );
     });
 
-    await step('Enter player name', async () => {
+    await step("Enter player name", async () => {
       const nameInput = canvas.getByLabelText(/your name/i);
       await userEvent.type(nameInput, "New Player");
     });
 
-    await step('Submit name', async () => {
+    await step("Submit name", async () => {
       const joinButton = canvas.getByRole("button", { name: /^join game$/i });
       await userEvent.click(joinButton);
 
       // Verify loading state
-      const loadingButton = await canvas.findByRole("button", { name: /joining/i });
+      const loadingButton = await canvas.findByRole("button", {
+        name: /joining/i,
+      });
       expect(loadingButton).toBeDisabled();
 
       // Simulate backend adding player
@@ -350,7 +343,7 @@ export const NameEntryInteraction: Story = {
       });
     });
 
-    await step('Verify joined successfully', async () => {
+    await step("Verify joined successfully", async () => {
       const welcomeMessage = await canvas.findByText(/welcome, new player!/i);
       expect(welcomeMessage).toBeInTheDocument();
     });
@@ -382,9 +375,7 @@ export const PlayerAnsweredCorrectly: Story = {
               playerName: "Test Player",
               correct: true,
             },
-            players: [
-              { id: "player-456", name: "Test Player", score: 1 },
-            ],
+            players: [{ id: "player-456", name: "Test Player", score: 1 }],
           },
           value: { active: "questionPrep" },
         },
@@ -420,7 +411,7 @@ export const AlreadyBuzzedIn: Story = {
                 playerId: "player-456",
                 playerName: "Test Player",
                 correct: false,
-              }
+              },
             ],
             lastAnswerResult: {
               playerId: "player-456",
@@ -438,25 +429,32 @@ export const AlreadyBuzzedIn: Story = {
     },
   },
   play: async ({ canvas, mount, step }) => {
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       await mount(<PlayerView />);
     });
 
-    await step('Verify question is visible', async () => {
+    await step("Verify question is visible", async () => {
       // The question should still be visible
-      const question = await canvas.findByText("What is the capital of France?");
+      const question = await canvas.findByText(
+        "What is the capital of France?"
+      );
       expect(question).toBeInTheDocument();
     });
 
-    await step('Verify buzz button is not present after incorrect answer', async () => {
-      // The buzz button should not be present since player already answered incorrectly
-      const buzzButton = canvas.queryByRole('button', { name: /buzz/i });
-      expect(buzzButton).not.toBeInTheDocument();
-    });
+    await step(
+      "Verify buzz button is not present after incorrect answer",
+      async () => {
+        // The buzz button should not be present since player already answered incorrectly
+        const buzzButton = canvas.queryByRole("button", { name: /buzz/i });
+        expect(buzzButton).not.toBeInTheDocument();
+      }
+    );
 
-    await step('Verify incorrect answer feedback', async () => {
+    await step("Verify incorrect answer feedback", async () => {
       // Should show the incorrect answer feedback
-      const feedbackMessage = await canvas.findByText(/sorry, that's incorrect/i);
+      const feedbackMessage = await canvas.findByText(
+        /sorry, that's incorrect/i
+      );
       expect(feedbackMessage).toBeInTheDocument();
     });
   },
@@ -514,7 +512,7 @@ export const QuestionWithBuzzer: Story = {
       },
     });
 
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       const view = await mount(
         <GameContext.ProviderFromClient client={gameClient}>
           <PlayerView />
@@ -522,17 +520,19 @@ export const QuestionWithBuzzer: Story = {
       );
     });
 
-    await step('Verify question is visible', async () => {
-      const question = await canvas.findByText("What is the capital of France?");
+    await step("Verify question is visible", async () => {
+      const question = await canvas.findByText(
+        "What is the capital of France?"
+      );
       expect(question).toBeInTheDocument();
     });
 
-    await step('Verify buzz button is present', async () => {
+    await step("Verify buzz button is present", async () => {
       const buzzButton = await canvas.findByTestId("buzz-button");
       expect(buzzButton).toBeInTheDocument();
     });
 
-    await step('Click buzz button', async () => {
+    await step("Click buzz button", async () => {
       const buzzButton = await canvas.findByTestId("buzz-button");
       await userEvent.click(buzzButton);
 
@@ -542,7 +542,7 @@ export const QuestionWithBuzzer: Story = {
       });
     });
 
-    await step('Verify player is first in queue', async () => {
+    await step("Verify player is first in queue", async () => {
       const turnMessage = await canvas.findByText(/your turn to answer/i);
       expect(turnMessage).toBeInTheDocument();
     });
@@ -621,7 +621,7 @@ export const MultiplePlayersAnswering: Story = {
       },
     });
 
-    await step('Mount component and first player buzzes in', async () => {
+    await step("Mount component and first player buzzes in", async () => {
       await mount(
         <SessionContext.ProviderFromClient client={sessionClient1}>
           <GameContext.ProviderFromClient client={gameClient}>
@@ -639,12 +639,12 @@ export const MultiplePlayersAnswering: Story = {
       });
     });
 
-    await step('Verify first player is answering', async () => {
+    await step("Verify first player is answering", async () => {
       const yourTurnText = await canvas.findByText(/your turn to answer/i);
       expect(yourTurnText).toBeInTheDocument();
     });
 
-    await step('Simulate incorrect answer from first player', async () => {
+    await step("Simulate incorrect answer from first player", async () => {
       // Simulate host marking answer as incorrect
       gameClient.produce((draft) => {
         draft.public.buzzerQueue = [];
@@ -653,34 +653,36 @@ export const MultiplePlayersAnswering: Story = {
           playerName: "Player 1",
           correct: false,
         };
-        draft.public.previousAnswers = [{
-          playerId: "player-1",
-          playerName: "Player 1",
-          correct: false,
-        }];
+        draft.public.previousAnswers = [
+          {
+            playerId: "player-1",
+            playerName: "Player 1",
+            correct: false,
+          },
+        ];
         draft.value = { active: "questionActive" };
       });
     });
 
-    await step('Verify incorrect answer feedback', async () => {
+    await step("Verify incorrect answer feedback", async () => {
       // Use test IDs instead of text content
       const answerFeedback = await canvas.findByTestId("answer-feedback");
       expect(answerFeedback).toBeInTheDocument();
-      
+
       const playerFeedback = await canvas.findByTestId("player-feedback");
       expect(playerFeedback).toHaveTextContent(/incorrect/i);
-      
+
       // Verify score remains at 0
       const scoreDisplay = await canvas.findByTestId("score-display");
       expect(scoreDisplay).toHaveTextContent("0");
-      
+
       // Verify buzz button is not present for player who answered incorrectly
       const buzzButton = canvas.queryByTestId("buzz-button");
       expect(buzzButton).not.toBeInTheDocument();
     });
 
     // Switch to second player's view
-    await step('Switch to second player view', async () => {
+    await step("Switch to second player view", async () => {
       gameClient.produce((draft) => {
         draft.public.buzzerQueue = [];
       });
@@ -695,11 +697,11 @@ export const MultiplePlayersAnswering: Story = {
       );
     });
 
-    await step('Verify second player can buzz in', async () => {
+    await step("Verify second player can buzz in", async () => {
       // Second player should see the buzz button
       const buzzButton = canvas.getByRole("button", { name: /buzz/i });
       expect(buzzButton).toBeInTheDocument();
-      
+
       await userEvent.click(buzzButton);
 
       // Simulate backend adding second player to buzzer queue
@@ -713,7 +715,7 @@ export const MultiplePlayersAnswering: Story = {
       expect(yourTurnText).toBeInTheDocument();
     });
 
-    await step('Simulate correct answer from second player', async () => {
+    await step("Simulate correct answer from second player", async () => {
       // Simulate host marking answer as correct
       gameClient.produce((draft) => {
         draft.public.buzzerQueue = [];
@@ -730,10 +732,10 @@ export const MultiplePlayersAnswering: Story = {
       // Verify correct answer feedback using test IDs
       const answerFeedback = await canvas.findByTestId("answer-feedback");
       expect(answerFeedback).toBeInTheDocument();
-      
+
       const playerFeedback = await canvas.findByTestId("player-feedback");
       expect(playerFeedback).toHaveTextContent(/correct/i);
-      
+
       // Verify score update
       const scoreDisplay = await canvas.findByTestId("score-display");
       expect(scoreDisplay).toHaveTextContent("1");

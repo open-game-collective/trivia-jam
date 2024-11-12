@@ -1,17 +1,14 @@
 import type { Meta, StoryObj } from "@storybook/react";
 import { expect } from "@storybook/test";
+import { withActorKit } from "actor-kit/storybook";
+import { createActorKitMockClient } from "actor-kit/test";
 import React from "react";
 import { SpectatorView } from "../app/components/spectator-view";
 import { GameContext } from "../app/game.context";
 import type { GameMachine } from "../app/game.machine";
 import { SessionContext } from "../app/session.context";
 import type { SessionMachine } from "../app/session.machine";
-import {
-  defaultGameSnapshot,
-  defaultSessionSnapshot,
-  withActorKit,
-} from "./utils";
-import { createActorKitMockClient } from "actor-kit/test";
+import { defaultGameSnapshot, defaultSessionSnapshot } from "./utils";
 
 const meta = {
   title: "Views/SpectatorView",
@@ -93,11 +90,11 @@ export const InLobby: Story = {
     },
   },
   play: async ({ canvas, mount, step }) => {
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       await mount(<SpectatorView host="dev.triviajam.tv" />);
     });
 
-    await step('Verify lobby elements', async () => {
+    await step("Verify lobby elements", async () => {
       const title = await canvas.findByText(/waiting for game to start/i);
       expect(title).toBeInTheDocument();
 
@@ -107,12 +104,12 @@ export const InLobby: Story = {
       expect(player2).toBeInTheDocument();
     });
 
-    await step('Verify empty slots', async () => {
+    await step("Verify empty slots", async () => {
       const emptySlots = await canvas.findAllByText("Empty Slot");
       expect(emptySlots).toHaveLength(8);
     });
 
-    await step('Verify QR code section', async () => {
+    await step("Verify QR code section", async () => {
       const qrCodeSection = await canvas.findByTestId("qr-code-section");
       expect(qrCodeSection).toBeInTheDocument();
 
@@ -171,7 +168,7 @@ export const WithBuzzerQueue: Story = {
       },
     });
 
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       await mount(
         <GameContext.ProviderFromClient client={gameClient}>
           <SpectatorView host="dev.triviajam.tv" />
@@ -179,7 +176,7 @@ export const WithBuzzerQueue: Story = {
       );
     });
 
-    await step('Simulate first player buzzing in', async () => {
+    await step("Simulate first player buzzing in", async () => {
       gameClient.produce((draft) => {
         draft.public.buzzerQueue = ["player-1"];
       });
@@ -188,7 +185,7 @@ export const WithBuzzerQueue: Story = {
       expect(currentAnswerer).toHaveTextContent("Player 1");
     });
 
-    await step('Simulate second player buzzing in', async () => {
+    await step("Simulate second player buzzing in", async () => {
       gameClient.produce((draft) => {
         draft.public.buzzerQueue = ["player-1", "player-2"];
       });
@@ -234,11 +231,11 @@ export const PlayerAnsweredCorrectly: Story = {
     },
   },
   play: async ({ canvas, mount, step }) => {
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       await mount(<SpectatorView host="dev.triviajam.tv" />);
     });
 
-    await step('Verify celebration elements using test IDs', async () => {
+    await step("Verify celebration elements using test IDs", async () => {
       const correctMessage = canvas.getByTestId("correct-message");
       expect(correctMessage).toBeInTheDocument();
       expect(correctMessage).toHaveTextContent(/correct/i);
@@ -288,29 +285,29 @@ export const GameFinished: Story = {
     },
   },
   play: async ({ canvas, mount, step }) => {
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       await mount(<SpectatorView host="dev.triviajam.tv" />);
     });
 
-    await step('Verify game over elements using test IDs', async () => {
+    await step("Verify game over elements using test IDs", async () => {
       const gameOverTitle = await canvas.findByTestId("game-over-title");
       expect(gameOverTitle).toBeInTheDocument();
       expect(gameOverTitle).toHaveTextContent(/game over/i);
     });
 
-    await step('Find winner announcement section', async () => {
+    await step("Find winner announcement section", async () => {
       const winnerSection = await canvas.findByTestId("winner-announcement");
       expect(winnerSection).toBeInTheDocument();
       expect(winnerSection).toHaveTextContent(/player 1.*wins/i);
     });
 
-    await step('Find Final Scores heading', async () => {
+    await step("Find Final Scores heading", async () => {
       const scoresHeading = await canvas.findByTestId("final-scores-heading");
       expect(scoresHeading).toBeInTheDocument();
       expect(scoresHeading).toHaveTextContent(/final scores/i);
     });
 
-    await step('Verify player scores using test IDs', async () => {
+    await step("Verify player scores using test IDs", async () => {
       const player1Score = await canvas.findByTestId("player-score-player-1");
       expect(player1Score).toBeInTheDocument();
       expect(player1Score).toHaveTextContent("Player 1");
@@ -356,20 +353,22 @@ export const WithIncorrectAnswers: Story = {
     },
   },
   play: async ({ canvas, mount, step }) => {
-    await step('Mount component with initial state', async () => {
+    await step("Mount component with initial state", async () => {
       await mount(<SpectatorView host="dev.triviajam.tv" />);
     });
 
-    await step('Verify incorrect answers section exists', async () => {
+    await step("Verify incorrect answers section exists", async () => {
       const incorrectAnswersSection = await canvas.findByText(
         /previous incorrect answers/i
       );
       expect(incorrectAnswersSection).toBeInTheDocument();
     });
 
-    await step('Verify incorrect answers', async () => {
+    await step("Verify incorrect answers", async () => {
       // Get all incorrect answer elements first
-      const incorrectAnswers = await canvas.findAllByTestId(/^incorrect-answer-/);
+      const incorrectAnswers = await canvas.findAllByTestId(
+        /^incorrect-answer-/
+      );
       expect(incorrectAnswers).toHaveLength(2);
 
       // Then verify their styling
@@ -378,7 +377,7 @@ export const WithIncorrectAnswers: Story = {
       });
     });
 
-    await step('Verify current player in buzzer queue', async () => {
+    await step("Verify current player in buzzer queue", async () => {
       const currentAnswerer = await canvas.findByTestId("current-answerer");
       expect(currentAnswerer).toBeInTheDocument();
       expect(currentAnswerer).toHaveTextContent("Player 3");
