@@ -4,6 +4,16 @@ import { CallerSnapshotFrom } from "actor-kit";
 import React from "react";
 import type { GameMachine } from "../app/game.machine";
 import { SessionMachine } from "../app/session.machine";
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { UnsafeBurnerWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { clusterApiUrl } from '@solana/web3.js';
+import { Decorator } from "@storybook/react";
+import { useMemo } from "react";
+
+// Import wallet styles
+import '@solana/wallet-adapter-react-ui/styles.css';
 
 export const defaultGameSnapshot = {
   public: {
@@ -24,9 +34,19 @@ export const defaultGameSnapshot = {
       questionCount: 10,
     },
     questionNumber: 0,
+    entryFee: 100,
+    prizePool: 0,
+    paidPlayers: [],
+    tokenTransactions: {},
+    gameVault: undefined,
   },
-  private: {},
-  value: { lobby: "ready" },
+  private: {
+    vaultKeypair: undefined,
+    vaultBump: undefined,
+  },
+  value: { 
+    lobby: "initializingVault" as const 
+  },
 } satisfies CallerSnapshotFrom<GameMachine>;
 
 export const defaultSessionSnapshot = {
@@ -152,4 +172,20 @@ export const withRemix = <TLoader extends Record<string, unknown>>() => {
       />
     );
   };
+};
+
+export const withSolana: Decorator = (Story, context) => {
+  const network = WalletAdapterNetwork.Devnet;
+  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+  const wallets = useMemo(() => [new UnsafeBurnerWalletAdapter()], []);
+
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      <WalletProvider wallets={wallets} autoConnect>
+        <WalletModalProvider>
+          <Story {...context} />
+        </WalletModalProvider>
+      </WalletProvider>
+    </ConnectionProvider>
+  );
 };

@@ -14,10 +14,136 @@ import {
 import { useState, useEffect, useMemo } from "react";
 import { GameContext } from "~/game.context";
 import { SessionContext } from "~/session.context";
+import { ShareGameLink } from "./share-game-link";
+import { PlayerList } from "./player-list";
+
+const HostNameInput = ({ onSubmit }: { onSubmit: (name: string) => void }) => {
+  const [name, setName] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Client-side validation
+    if (!name.trim()) {
+      setError("Please enter your name");
+      return;
+    }
+    if (name.length > 20) {
+      setError("Name must be 20 characters or less");
+      return;
+    }
+    if (!/^[a-zA-Z0-9\s]+$/.test(name)) {
+      setError("Name can only contain letters, numbers and spaces");
+      return;
+    }
+
+    setIsSubmitting(true);
+    onSubmit(name.trim());
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center p-4 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+        </div>
+      </div>
+
+      <motion.div
+        data-testid="host-name-input-form"
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative z-10 w-full max-w-md bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
+      >
+        <h1 className="text-3xl font-bold text-center mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+          Host New Game
+        </h1>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label
+              htmlFor="hostName"
+              className="block text-sm font-medium text-indigo-300 mb-2"
+            >
+              Your Name
+            </label>
+            <input
+              data-testid="host-name-input"
+              id="hostName"
+              type="text"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setError(null);
+              }}
+              className="w-full px-4 py-2 bg-gray-700/50 border border-gray-600 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="Enter your name"
+              maxLength={20}
+              disabled={isSubmitting}
+            />
+            {error && (
+              <motion.p
+                data-testid="host-name-input-error"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-2 text-sm text-red-400"
+              >
+                {error}
+              </motion.p>
+            )}
+          </div>
+          <motion.button
+            data-testid="create-game-button"
+            type="submit"
+            whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
+            whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+            className={`w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center ${
+              isSubmitting ? "opacity-75 cursor-not-allowed" : ""
+            }`}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                Creating Game...
+              </>
+            ) : (
+              "Create Game"
+            )}
+          </motion.button>
+        </form>
+      </motion.div>
+    </div>
+  );
+};
 
 export const HostView = ({ host }: { host: string }) => {
   const gameState = GameContext.useSelector((state) => state);
   const sessionState = SessionContext.useSelector((state) => state.public);
+  const send = GameContext.useSend();
+
+  // Show name input if host hasn't set their name yet
+  if (!gameState.public.hostName) {
+    return (
+      <HostNameInput 
+        onSubmit={(name) => send({ type: "SET_HOST_NAME", name })}
+      />
+    );
+  }
+
   const {
     gameStatus,
     currentQuestion,
@@ -26,7 +152,6 @@ export const HostView = ({ host }: { host: string }) => {
     hostId,
     id,
   } = gameState.public;
-  const send = GameContext.useSend();
 
   if (sessionState.userId !== hostId) {
     return (
@@ -109,91 +234,6 @@ export const HostView = ({ host }: { host: string }) => {
   );
 };
 
-const PlayerSlot = ({ 
-  player,
-  onRemove,
-  isHost 
-}: { 
-  player?: { id: string; name: string; score: number };
-  onRemove?: (playerId: string) => void;
-  isHost?: boolean;
-}) => (
-  <div className="flex justify-between items-center p-2 sm:p-3 rounded-lg bg-gray-900/30 border border-gray-700/30">
-    {player ? (
-      <>
-        <div className="flex items-center gap-2">
-          <span className="font-medium">{player.name}</span>
-          {isHost && (
-            <span className="px-2 py-1 text-xs font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
-              Host
-            </span>
-          )}
-          {onRemove && !isHost && (
-            <motion.button
-              onClick={() => onRemove(player.id)}
-              className="p-1 text-red-400 hover:text-red-300 transition-colors"
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
-              data-testid={`remove-player-${player.id}`}
-            >
-              <X className="w-4 h-4" />
-            </motion.button>
-          )}
-        </div>
-        <div className="flex items-center">
-          <motion.span 
-            key={`score-${player.score}`}
-            initial={{ scale: 1.2, color: '#34D399' }}
-            animate={{ scale: 1, color: '#818CF8' }}
-            className="text-indigo-400 font-bold"
-          >
-            {player.score}
-          </motion.span>
-        </div>
-      </>
-    ) : (
-      <span className="text-white/30 font-medium">Empty Slot</span>
-    )}
-  </div>
-);
-
-const PlayerList = ({ 
-  players, 
-  maxPlayers = 10,
-  hostId,
-  onRemovePlayer,
-}: { 
-  players: Array<{ id: string; name: string; score: number }>;
-  maxPlayers?: number;
-  hostId: string;
-  onRemovePlayer?: (playerId: string) => void;
-}) => {
-  // Create array of length maxPlayers filled with players or undefined
-  const slots = Array(maxPlayers).fill(undefined).map((_, i) => players[i]);
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
-    >
-      <h2 className="text-xl font-bold mb-3 text-indigo-300 flex items-center gap-2">
-        <Users className="w-5 h-5" /> Players ({players.length}/{maxPlayers})
-      </h2>
-      <div className="space-y-2">
-        {slots.map((player, index) => (
-          <PlayerSlot 
-            key={player?.id || `empty-${index}`} 
-            player={player}
-            isHost={player?.id === hostId}
-            onRemove={onRemovePlayer}
-          />
-        ))}
-      </div>
-    </motion.div>
-  );
-};
-
 const LobbyControls = ({
   players,
   onStartGame,
@@ -266,73 +306,7 @@ const LobbyControls = ({
           <h2 className="text-xl font-bold text-indigo-300 text-center mb-4">
             Share Game Link
           </h2>
-          <div className="space-y-3">
-            <motion.button
-              onClick={copyGameLink}
-              className="w-full relative group"
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              data-testid="game-link-button"
-            >
-              <div className="absolute inset-0 bg-indigo-500/20 rounded-xl blur-xl group-hover:bg-indigo-500/30 transition-all" />
-              <div className="relative bg-gray-800/50 backdrop-blur-sm border border-indigo-500/30 rounded-xl p-4 sm:p-6 flex items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <span className="text-sm sm:text-lg font-medium tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 truncate block">
-                    {gameUrl}
-                  </span>
-                </div>
-                <div className="flex-shrink-0">
-                  <AnimatePresence mode="wait">
-                    {copied ? (
-                      <motion.div
-                        key="check"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        className="text-green-400"
-                        data-testid="copy-success-icon"
-                      >
-                        <Check className="w-5 h-5 sm:w-6 sm:h-6" />
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="copy"
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        exit={{ scale: 0 }}
-                        className="text-indigo-400 group-hover:text-indigo-300 transition-colors"
-                        data-testid="copy-icon"
-                      >
-                        <Copy className="w-5 h-5 sm:w-6 sm:h-6" />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            </motion.button>
-
-            {/* Share button - always shown */}
-            <motion.button
-              onClick={shareGameLink}
-              className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 rounded-xl p-4 sm:p-6 flex items-center justify-center gap-2 transition-colors"
-            >
-              <svg
-                className="w-5 h-5 sm:w-6 sm:h-6"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92zM18 4c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zM6 13c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1zm12 7.02c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z" />
-              </svg>
-              Share Game
-            </motion.button>
-          </div>
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center mt-2 text-indigo-300/60 text-sm"
-          >
-            Click to copy or share game link
-          </motion.div>
+          <ShareGameLink host={host} gameId={gameState.id} />
         </div>
 
         <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
@@ -341,8 +315,6 @@ const LobbyControls = ({
 
         <div className="mb-8">
           <PlayerList 
-            players={players} 
-            hostId={gameState.hostId}
             onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
           />
         </div>
@@ -581,9 +553,8 @@ const QuestionControls = ({
 
         {/* Player List */}
         <PlayerList 
-          players={sortedPlayers} 
-          hostId={gameState.hostId}
           onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
+          showScores={true}
         />
 
         {/* End Game Button */}

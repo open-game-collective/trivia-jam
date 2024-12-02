@@ -12,7 +12,9 @@ import {
   SessionServiceEventSchema,
 } from "./session.schemas";
 
-export type SessionClientEvent = z.infer<typeof SessionClientEventSchema>;
+export type SessionClientEvent = 
+  | { type: "START_GAME"; gameId: string }
+  | { type: "CONNECT_WALLET"; publicKey: string };
 export type SessionServiceEvent = z.infer<typeof SessionServiceEventSchema>;
 export type SessionInput = WithActorKitInput<
   z.infer<typeof SessionInputPropsSchema>
@@ -20,7 +22,8 @@ export type SessionInput = WithActorKitInput<
 
 type SessionPublicContext = {
   userId: string;
-  gameIdsByJoinCode: Record<string, string>; // joinCode -> gameId mapping
+  gameIdsByJoinCode: Record<string, string>;
+  walletPublicKey?: string;
 };
 
 type SessionPrivateContext = {};

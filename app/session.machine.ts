@@ -1,5 +1,6 @@
 import type { ActorKitStateMachine } from "actor-kit";
-import { setup } from "xstate";
+import { setup, assign } from "xstate";
+import { produce } from "immer";
 import type {
   SessionEvent,
   SessionInput,
@@ -12,7 +13,15 @@ export const sessionMachine = setup({
     events: {} as SessionEvent,
     input: {} as SessionInput,
   },
-  actions: {},
+  actions: {
+    storeWalletPublicKey: assign(
+      ({ context }, { publicKey }: { publicKey: string }) => ({
+        public: produce(context.public, (draft) => {
+          draft.walletPublicKey = publicKey;
+        }),
+      })
+    ),
+  },
   guards: {},
 }).createMachine({
   id: "session",
@@ -21,7 +30,8 @@ export const sessionMachine = setup({
     return {
       public: {
         userId: input.caller.id,
-        gameIdsByJoinCode: {}, // Map of join codes to game IDs
+        gameIdsByJoinCode: {},
+        walletPublicKey: undefined,
       },
       private: {
         [input.caller.id]: {},
@@ -32,7 +42,18 @@ export const sessionMachine = setup({
     Initialization: {
       initial: "Ready",
       states: {
-        Ready: {},
+        Ready: {
+          on: {
+            CONNECT_WALLET: {
+              actions: {
+                type: "storeWalletPublicKey",
+                params: ({ event }: { event: { publicKey: string } }) => ({
+                  publicKey: event.publicKey,
+                }),
+              },
+            },
+          },
+        },
       },
     },
   },

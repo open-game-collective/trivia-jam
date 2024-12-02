@@ -10,6 +10,11 @@ import type { GameMachine } from "../app/game.machine";
 import { SessionContext } from "../app/session.context";
 import type { SessionMachine } from "../app/session.machine";
 import { defaultGameSnapshot, defaultSessionSnapshot } from "./utils";
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { UnsafeBurnerWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { clusterApiUrl } from '@solana/web3.js';
 
 const meta = {
   title: "Views/PlayerView",
@@ -26,36 +31,26 @@ const meta = {
       actorType: "game",
       context: GameContext,
     }),
+    (Story) => {
+      const network = WalletAdapterNetwork.Devnet;
+      const endpoint = clusterApiUrl(network);
+      const wallets = [new UnsafeBurnerWalletAdapter()];
+
+      return (
+        <ConnectionProvider endpoint={endpoint}>
+          <WalletProvider wallets={wallets} autoConnect>
+            <WalletModalProvider>
+              <Story />
+            </WalletModalProvider>
+          </WalletProvider>
+        </ConnectionProvider>
+      );
+    },
   ],
 } satisfies Meta<typeof PlayerView>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
-
-export const InLobby: Story = {
-  parameters: {
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "player-456",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            players: [{ id: "player-456", name: "Test Player", score: 0 }],
-          },
-        },
-      },
-    },
-  },
-};
 
 export const WaitingForQuestion: Story = {
   parameters: {
@@ -739,6 +734,268 @@ export const MultiplePlayersAnswering: Story = {
       // Verify score update
       const scoreDisplay = await canvas.findByTestId("score-display");
       expect(scoreDisplay).toHaveTextContent("1");
+    });
+  },
+};
+
+export const Lobby: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            players: [{ id: "player-456", name: "Test Player", score: 0 }],
+          },
+        },
+      },
+    },
+  },
+};
+
+
+export const LobbyWithoutWallet: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            players: [{ id: "player-456", name: "Test Player", score: 0 }],
+            entryFee: 100,
+            prizePool: 0,
+            paidPlayers: [],
+          },
+        },
+      },
+    },
+  },
+};
+
+export const LobbyWithWalletNoBalance: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            players: [{ id: "player-456", name: "Test Player", score: 0 }],
+            entryFee: 100,
+            prizePool: 0,
+            paidPlayers: [],
+          },
+        },
+      },
+    },
+  },
+};
+
+export const LobbyWithBalance: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            players: [{ id: "player-456", name: "Test Player", score: 0 }],
+            entryFee: 100,
+            prizePool: 0,
+            paidPlayers: [],
+          },
+        },
+      },
+    },
+  },
+};
+
+export const LobbyAfterPayment: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            players: [{ id: "player-456", name: "Test Player", score: 0 }],
+            entryFee: 100,
+            prizePool: 100,
+            paidPlayers: ["player-456"],
+          },
+        },
+      },
+    },
+  },
+};
+
+export const LobbyWithMultiplePlayers: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            players: [
+              { id: "host-123", name: "Host Player", score: 0 },
+              { id: "player-456", name: "Test Player", score: 0 },
+              { id: "player-789", name: "Another Player", score: 0 },
+            ],
+            entryFee: 100,
+            prizePool: 200,
+            paidPlayers: ["player-456", "host-123"],
+          },
+        },
+      },
+    },
+  },
+};
+
+export const LobbyFull: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-5", // We're player-5 in this view
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            players: [
+              { id: "host-1", name: "Game Host", score: 0 },
+              { id: "player-2", name: "Alice", score: 0 },
+              { id: "player-3", name: "Bob", score: 0 },
+              { id: "player-4", name: "Charlie", score: 0 },
+              { id: "player-5", name: "You", score: 0 },
+              { id: "player-6", name: "David", score: 0 },
+              { id: "player-7", name: "Eve", score: 0 },
+              { id: "player-8", name: "Frank", score: 0 },
+              { id: "player-9", name: "Grace", score: 0 },
+              { id: "player-10", name: "Henry", score: 0 },
+            ],
+            entryFee: 100,
+            prizePool: 600, // 6 players have paid
+            paidPlayers: [
+              "host-1",    // Host has paid
+              "player-2",  // Alice paid
+              "player-3",  // Bob paid
+              "player-5",  // You paid
+              "player-7",  // Eve paid
+              "player-8",  // Frank paid
+            ],
+            settings: {
+              maxPlayers: 10,
+              questionCount: 10,
+            },
+            gameStatus: "lobby",
+          },
+          value: { lobby: "waitingForPlayers" },
+        },
+      },
+    },
+  },
+  play: async ({ mount, canvas, step }) => {
+    await step("Mount component", async () => {
+      await mount(<PlayerView />);
+    });
+
+    await step("Verify player count", async () => {
+      // Should show 10/10 players
+      const playerCount = await canvas.findByText("6/10");
+      expect(playerCount).toBeInTheDocument();
+    });
+
+    await step("Verify paid status indicators", async () => {
+      // Should show 6 "Entry Paid" indicators
+      const paidIndicators = await canvas.findAllByText("Entry Paid");
+      expect(paidIndicators).toHaveLength(6);
+    });
+
+    await step("Verify prize pool", async () => {
+      // Prize pool should be 600 JAM (6 players * 100 JAM)
+      const prizePool = await canvas.findByText("Current Prize Pool: 600 JAM");
+      expect(prizePool).toBeInTheDocument();
+    });
+
+    await step("Verify player list styling", async () => {
+      // Paid players should have green background
+      const paidPlayerElements = await canvas.findAllByText(/Entry Paid/);
+      paidPlayerElements.forEach(element => {
+        const parentDiv = element.closest('div');
+        expect(parentDiv).toHaveClass('bg-green-500/10');
+      });
+
+      // Unpaid players should have gray background
+      const unpaidPlayers = ["Charlie", "David", "Grace", "Henry"];
+      for (const playerName of unpaidPlayers) {
+        const playerElement = await canvas.findByText(playerName);
+        const parentDiv = playerElement.closest('div');
+        expect(parentDiv).toHaveClass('bg-gray-800/50');
+      }
     });
   },
 };

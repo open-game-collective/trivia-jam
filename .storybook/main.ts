@@ -1,4 +1,5 @@
 import type { StorybookConfig } from "@storybook/react-vite";
+import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill'
 import path from "path";
 import { mergeConfig } from "vite";
 
@@ -23,10 +24,20 @@ const config: StorybookConfig = {
   },
   async viteFinal(config) {
     return mergeConfig(config, {
+      optimizeDeps: {
+        esbuildOptions: {
+          plugins: [
+            NodeGlobalsPolyfillPlugin({
+              buffer: true,
+            }),
+          ],
+        },
+      },
       resolve: {
         alias: {
           "~": path.resolve(__dirname, "../app"),
         },
+
       },
     });
   },

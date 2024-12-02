@@ -6,25 +6,10 @@ import type {
 } from "actor-kit";
 import { z } from "zod";
 import { Env } from "./env";
-import { GameClientEventSchema, GameInputPropsSchema } from "./game.schemas";
+import { GameClientEventSchema, GameServiceEventSchema, GameInputPropsSchema } from "./game.schemas";
 
 export type GameInputProps = z.infer<typeof GameInputPropsSchema>;
 export type GameInput = WithActorKitInput<GameInputProps>;
-
-// Event Schemas
-
-export const GameServiceEventSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("SYNC_PLAYERS"),
-    players: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        score: z.number(),
-      })
-    ),
-  }),
-]);
 
 // Event Types
 export type GameClientEvent = z.infer<typeof GameClientEventSchema>;
@@ -68,9 +53,22 @@ export type GamePublicContext = {
     correct: boolean;
   }>;
   questionNumber: number;
+  entryFee: number;
+  prizePool: number;
+  paidPlayers: string[];
+  gameVault?: string;
+  tokenTransactions: {
+    [playerId: string]: {
+      entryFeeSignature?: string;
+      prizeSignature?: string;
+    }
+  };
 };
 
-export type GamePrivateContext = {};
+export type GamePrivateContext = {
+  vaultKeypair?: string; // Store securely
+  vaultBump?: number;
+};
 
 export type GameServerContext = {
   public: GamePublicContext;

@@ -5,6 +5,10 @@ export const SessionClientEventSchema = z.discriminatedUnion("type", [
     type: z.literal("START_GAME"),
     gameId: z.string(),
   }),
+  z.object({
+    type: z.literal("CONNECT_WALLET"),
+    publicKey: z.string(),
+  }),
 ]);
 
 

@@ -3,6 +3,7 @@ import { Bell, Crown, Trophy, Users, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
 import { GameContext } from "~/game.context";
+import { PlayerList } from "./player-list";
 
 const SOUND_EFFECTS = {
   // Classic game show buzzer sound
@@ -136,11 +137,6 @@ const LobbyDisplay = ({
   // Construct the game URL using the host prop
   const gameUrl = `https://${host}/games/${id}`;
 
-  // Create array of length maxPlayers filled with players or undefined
-  const slots = Array(maxPlayers)
-    .fill(undefined)
-    .map((_, i) => currentPlayers[i]);
-
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
       {/* Background Animation */}
@@ -187,40 +183,7 @@ const LobbyDisplay = ({
           </p>
         </div>
 
-        <div className="space-y-3">
-          <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
-            <Users className="w-6 h-6" /> Players ({currentPlayers.length}/
-            {maxPlayers})
-          </h2>
-          <AnimatePresence mode="popLayout">
-            {slots.map((player, index) => (
-              <motion.div
-                key={player?.id || `empty-${index}`}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`flex justify-between items-center p-4 rounded-xl border ${
-                  player
-                    ? "bg-gray-800/30 border-gray-700/30"
-                    : "bg-gray-800/10 border-gray-700/20"
-                }`}
-              >
-                {player ? (
-                  <div className="flex items-center gap-3">
-                    <span className="font-medium">{player.name}</span>
-                    {player.id === hostId && (
-                      <span className="px-2 py-1 text-xs font-bold bg-indigo-500/20 text-indigo-300 rounded-full border border-indigo-500/30">
-                        Host
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <span className="text-white/30 font-medium">Empty Slot</span>
-                )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
+        <PlayerList />
       </motion.div>
     </div>
   );
