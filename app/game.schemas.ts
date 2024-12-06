@@ -81,6 +81,12 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
     type: z.literal("SET_HOST_NAME"),
     name: z.string(),
   }),
+
+  // Add new event for updating scheduled start time
+  z.object({
+    type: z.literal("UPDATE_SCHEDULED_START"),
+    time: z.number(),
+  }),
 ]);
 
 // Service Events (authoritative responses)

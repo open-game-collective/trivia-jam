@@ -39,6 +39,7 @@ export const defaultGameSnapshot = {
     paidPlayers: [],
     tokenTransactions: {},
     gameVault: undefined,
+    scheduledStartTime: Date.now() + 15 * 60 * 1000,
   },
   private: {
     vaultKeypair: undefined,
@@ -177,7 +178,14 @@ export const withRemix = <TLoader extends Record<string, unknown>>() => {
 export const withSolana: Decorator = (Story, context) => {
   const network = WalletAdapterNetwork.Devnet;
   const endpoint = useMemo(() => clusterApiUrl(network), [network]);
-  const wallets = useMemo(() => [new UnsafeBurnerWalletAdapter()], []);
+  
+  // Use Phantom wallet adapter for development
+  const wallets = useMemo(
+    () => [
+      new UnsafeBurnerWalletAdapter(),
+    ],
+    []
+  );
 
   return (
     <ConnectionProvider endpoint={endpoint}>
@@ -188,4 +196,22 @@ export const withSolana: Decorator = (Story, context) => {
       </WalletProvider>
     </ConnectionProvider>
   );
+};
+
+export const getDefaultScheduledStartTime = () => {
+  const now = new Date();
+  now.setSeconds(0, 0);
+  
+  const minutes = now.getMinutes();
+  const roundedMinutes = Math.ceil(minutes / 10) * 10;
+  
+  const nextTime = new Date(now);
+  nextTime.setMinutes(roundedMinutes);
+  
+  const timeUntilNext = nextTime.getTime() - now.getTime();
+  if (timeUntilNext < 10 * 60 * 1000) {
+    nextTime.setMinutes(roundedMinutes + 10);
+  }
+  
+  return nextTime.getTime();
 };

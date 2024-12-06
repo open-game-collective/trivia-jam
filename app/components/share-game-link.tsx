@@ -2,7 +2,13 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy } from "lucide-react";
 import { useState } from "react";
 
-export const ShareGameLink = ({ host, gameId }: { host: string; gameId: string }) => {
+export const ShareGameLink = ({
+  host,
+  gameId,
+}: {
+  host: string;
+  gameId: string;
+}) => {
   const [copied, setCopied] = useState(false);
   const gameUrl = `https://${host}/games/${gameId}`;
 
@@ -15,9 +21,9 @@ export const ShareGameLink = ({ host, gameId }: { host: string; gameId: string }
   const shareGameLink = async () => {
     try {
       await navigator.share({
-        title: 'Join my Trivia Jam game!',
-        text: 'Click to join my Trivia Jam game!',
-        url: gameUrl
+        title: "Join my Trivia Jam game!",
+        text: "Click to join my Trivia Jam game!",
+        url: gameUrl,
       });
     } catch (err) {
       // Fallback to copy if share fails
@@ -27,6 +33,13 @@ export const ShareGameLink = ({ host, gameId }: { host: string; gameId: string }
 
   return (
     <div className="space-y-3">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="text-center mt-2 text-indigo-300/60 text-sm"
+      >
+        Click to copy or share game link
+      </motion.div>
       <motion.button
         onClick={copyGameLink}
         className="w-full relative group"
@@ -84,14 +97,6 @@ export const ShareGameLink = ({ host, gameId }: { host: string; gameId: string }
         </svg>
         Share Game
       </motion.button>
-
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        className="text-center mt-2 text-indigo-300/60 text-sm"
-      >
-        Click to copy or share game link
-      </motion.div>
     </div>
   );
-}; 
+};

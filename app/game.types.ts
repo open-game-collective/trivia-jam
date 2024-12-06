@@ -63,6 +63,7 @@ export type GamePublicContext = {
       prizeSignature?: string;
     }
   };
+  scheduledStartTime: number; // Unix timestamp in milliseconds
 };
 
 export type GamePrivateContext = {

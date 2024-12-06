@@ -9,11 +9,11 @@ import { GameContext } from "../app/game.context";
 import type { GameMachine } from "../app/game.machine";
 import { SessionContext } from "../app/session.context";
 import type { SessionMachine } from "../app/session.machine";
-import { defaultGameSnapshot, defaultSessionSnapshot } from "./utils";
+import { defaultGameSnapshot, defaultSessionSnapshot, getDefaultScheduledStartTime } from "./utils";
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
-import { UnsafeBurnerWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { PhantomWalletAdapter, SafePalWalletAdapter, UnsafeBurnerWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { clusterApiUrl } from '@solana/web3.js';
 
 const meta = {
@@ -34,7 +34,10 @@ const meta = {
     (Story) => {
       const network = WalletAdapterNetwork.Devnet;
       const endpoint = clusterApiUrl(network);
-      const wallets = [new UnsafeBurnerWalletAdapter()];
+      const wallets = [
+        new PhantomWalletAdapter(),
+        new SafePalWalletAdapter(),
+        new UnsafeBurnerWalletAdapter()];
 
       return (
         <ConnectionProvider endpoint={endpoint}>
@@ -71,6 +74,7 @@ export const WaitingForQuestion: Story = {
             ...defaultGameSnapshot.public,
             gameStatus: "active",
             players: [{ id: "player-456", name: "Test Player", score: 0 }],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { active: "questionPrep" },
         },
@@ -101,6 +105,7 @@ export const QuestionVisible: Story = {
               text: "What is the capital of France?",
             },
             players: [{ id: "player-456", name: "Test Player", score: 0 }],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { active: "questionActive" },
         },
@@ -118,6 +123,7 @@ export const QuestionVisible: Story = {
             text: "What is the capital of France?",
           },
           players: [{ id: "player-456", name: "Test Player", score: 0 }],
+          scheduledStartTime: getDefaultScheduledStartTime(),
         },
         value: { active: "questionActive" },
       },
@@ -204,6 +210,7 @@ export const PlayerAnsweredIncorrectly: Story = {
               correct: false,
             },
             players: [{ id: "player-456", name: "Test Player", score: 0 }],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { active: "answerValidation" },
         },
@@ -258,6 +265,7 @@ export const NameEntry: Story = {
             gameStatus: "lobby",
             players: [],
             questionNumber: 0,
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { lobby: "ready" },
         },
@@ -286,6 +294,7 @@ export const NameEntryInteraction: Story = {
             gameStatus: "lobby",
             players: [],
             questionNumber: 0,
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { lobby: "ready" },
         },
@@ -301,6 +310,7 @@ export const NameEntryInteraction: Story = {
           gameStatus: "lobby",
           players: [],
           questionNumber: 0,
+          scheduledStartTime: getDefaultScheduledStartTime(),
         },
       },
     });
@@ -371,6 +381,7 @@ export const PlayerAnsweredCorrectly: Story = {
               correct: true,
             },
             players: [{ id: "player-456", name: "Test Player", score: 1 }],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { active: "questionPrep" },
         },
@@ -417,6 +428,7 @@ export const AlreadyBuzzedIn: Story = {
               { id: "player-456", name: "Test Player", score: 0 },
               { id: "player-789", name: "Other Player", score: 0 },
             ],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { active: "questionActive" },
         },
@@ -481,6 +493,7 @@ export const QuestionWithBuzzer: Story = {
               { id: "player-456", name: "Test Player", score: 0 },
               { id: "player-789", name: "Other Player", score: 0 },
             ],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { active: "questionActive" },
         },
@@ -502,6 +515,7 @@ export const QuestionWithBuzzer: Story = {
             { id: "player-456", name: "Test Player", score: 0 },
             { id: "player-789", name: "Other Player", score: 0 },
           ],
+          scheduledStartTime: getDefaultScheduledStartTime(),
         },
         value: { active: "questionActive" },
       },
@@ -569,6 +583,7 @@ export const MultiplePlayersAnswering: Story = {
               { id: "player-1", name: "Player 1", score: 0 },
               { id: "player-2", name: "Player 2", score: 0 },
             ],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { active: "questionActive" },
         },
@@ -589,6 +604,7 @@ export const MultiplePlayersAnswering: Story = {
             { id: "player-1", name: "Player 1", score: 0 },
             { id: "player-2", name: "Player 2", score: 0 },
           ],
+          scheduledStartTime: getDefaultScheduledStartTime(),
         },
         value: { active: "questionActive" },
       },
@@ -756,6 +772,7 @@ export const Lobby: Story = {
           public: {
             ...defaultGameSnapshot.public,
             players: [{ id: "player-456", name: "Test Player", score: 0 }],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
         },
       },
@@ -785,6 +802,7 @@ export const LobbyWithoutWallet: Story = {
             entryFee: 100,
             prizePool: 0,
             paidPlayers: [],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
         },
       },
@@ -813,6 +831,7 @@ export const LobbyWithWalletNoBalance: Story = {
             entryFee: 100,
             prizePool: 0,
             paidPlayers: [],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
         },
       },
@@ -841,6 +860,7 @@ export const LobbyWithBalance: Story = {
             entryFee: 100,
             prizePool: 0,
             paidPlayers: [],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
         },
       },
@@ -869,6 +889,7 @@ export const LobbyAfterPayment: Story = {
             entryFee: 100,
             prizePool: 100,
             paidPlayers: ["player-456"],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
         },
       },
@@ -901,6 +922,7 @@ export const LobbyWithMultiplePlayers: Story = {
             entryFee: 100,
             prizePool: 200,
             paidPlayers: ["player-456", "host-123"],
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
         },
       },
@@ -952,6 +974,7 @@ export const LobbyFull: Story = {
               questionCount: 10,
             },
             gameStatus: "lobby",
+            scheduledStartTime: getDefaultScheduledStartTime(),
           },
           value: { lobby: "waitingForPlayers" },
         },
@@ -997,6 +1020,138 @@ export const LobbyFull: Story = {
         expect(parentDiv).toHaveClass('bg-gray-800/50');
       }
     });
+  },
+};
+
+export const LobbyWithNoPlayers: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "new-player",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "lobby",
+            players: [],
+            entryFee: 100,
+            paidPlayers: [],
+            settings: {
+              ...defaultGameSnapshot.public.settings,
+              maxPlayers: 10,
+            },
+            scheduledStartTime: getDefaultScheduledStartTime(),
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvas }) => {
+    // Verify entry fee is displayed
+    expect(await canvas.findByText("100 TJAM")).toBeInTheDocument();
+    
+    // Verify fixed prizes (always for 10 players)
+    expect(await canvas.findByText("560 TJAM")).toBeInTheDocument(); // First place
+    expect(await canvas.findByText("270 TJAM")).toBeInTheDocument(); // Second place
+    expect(await canvas.findByText("110 TJAM")).toBeInTheDocument(); // Third place
+    expect(await canvas.findByText("36 TJAM")).toBeInTheDocument(); // Host
+    
+    // Verify "Enter Game" button is visible
+    const enterButton = await canvas.findByText("Enter Game");
+    expect(enterButton).toBeInTheDocument();
+  },
+};
+
+export const LobbyBeforeJoining: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "new-player",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "lobby",
+            players: [
+              { id: "player-1", name: "Alice", score: 0 },
+              { id: "player-2", name: "Bob", score: 0 },
+            ],
+            entryFee: 100,
+            paidPlayers: ["player-1", "player-2"],
+            scheduledStartTime: getDefaultScheduledStartTime(),
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvas }) => {
+    // Verify entry fee is displayed
+    expect(await canvas.findByText("100 TJAM")).toBeInTheDocument();
+    
+    // Verify fixed prizes (always for 10 players)
+    expect(await canvas.findByText("560 TJAM")).toBeInTheDocument(); // First place
+    expect(await canvas.findByText("270 TJAM")).toBeInTheDocument(); // Second place
+    expect(await canvas.findByText("110 TJAM")).toBeInTheDocument(); // Third place
+    expect(await canvas.findByText("36 TJAM")).toBeInTheDocument(); // Host
+  },
+};
+
+export const LobbyAfterJoining: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-3",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "lobby",
+            players: [
+              { id: "player-1", name: "Alice", score: 0 },
+              { id: "player-2", name: "Bob", score: 0 },
+              { id: "player-3", name: "You", score: 0 },
+            ],
+            entryFee: 100,
+            paidPlayers: ["player-1", "player-2", "player-3"],
+            scheduledStartTime: getDefaultScheduledStartTime(),
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvas }) => {
+    // Verify entry fee is displayed
+    expect(await canvas.findByText("100 TJAM")).toBeInTheDocument();
+    
+    // Verify fixed prizes (always for 10 players)
+    expect(await canvas.findByText("560 TJAM")).toBeInTheDocument(); // First place
+    expect(await canvas.findByText("270 TJAM")).toBeInTheDocument(); // Second place
+    expect(await canvas.findByText("110 TJAM")).toBeInTheDocument(); // Third place
+    expect(await canvas.findByText("36 TJAM")).toBeInTheDocument(); // Host
   },
 };
 

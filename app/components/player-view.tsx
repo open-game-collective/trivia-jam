@@ -1,16 +1,117 @@
-import { getAssociatedTokenAddress } from "@solana/spl-token";
+import {
+  createAssociatedTokenAccountInstruction,
+  getAssociatedTokenAddress,
+} from "@solana/spl-token";
+
+import { LAMPORTS_PER_SOL, SystemProgram, Transaction } from "@solana/web3.js";
+
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { LAMPORTS_PER_SOL } from "@solana/web3.js";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, Crown, Loader2, Copy } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
-import { JAM_TOKEN_MINT } from "~/config";
+import { Bell, Crown, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { TJAM_TOKEN_AUTHORITY, TJAM_TOKEN_MINT } from "~/config";
 import { GameContext } from "~/game.context";
 import { SessionContext } from "~/session.context";
-import { ShareGameLink } from "./share-game-link";
 import { PlayerList } from "./player-list";
-import { PublicKey } from "@solana/web3.js";
+import { ShareGameLink } from "./share-game-link";
+import { TokenBalance } from "./token-balance";
+import { WalletInfo } from "./wallet-info";
+
+const MINIMUM_SOL_FOR_ACCOUNT = 0.001;
+const SOL_TO_TJAM_RATE = 1000; // 1 SOL = 1000 TJAM
+const MIN_SOL_DEPOSIT = 0.05; // Minimum 0.05 SOL deposit
+const SUGGESTED_SOL_PERCENTAGE = 0.15; // 15% of SOL balance
+
+// Add this interface at the top with other interfaces
+interface TokenAccountState {
+  exists: boolean;
+  balance: number;
+  isInitialized: boolean;
+}
+
+// Add these prize calculation functions at the top of the file
+const calculatePrizes = (entryFee: number, playerCount: number) => {
+  // We know the total pool is always 1000 TJAM (100 TJAM * 10 players)
+  return {
+    first: 560, // 56% of 1000
+    second: 270, // 27% of 1000
+    third: 110, // 11% of 1000
+    hostFee: 36, // 3.6% of 1000
+    platformFee: 24, // 2.4% of 1000
+  };
+};
+
+// Add this helper function to get the next quarter hour
+const getNextGameTime = (date: Date) => {
+  // Create new date and clear seconds/milliseconds
+  const baseTime = new Date(date);
+  baseTime.setSeconds(0, 0);
+  
+  // Get minutes and round up to next 10
+  const minutes = baseTime.getMinutes();
+  const roundedMinutes = Math.ceil(minutes / 10) * 10;
+  
+  // Create result time
+  const result = new Date(baseTime);
+  result.setMinutes(roundedMinutes);
+  
+  // If we're less than 10 minutes away, add 10 minutes
+  const timeUntilNext = result.getTime() - baseTime.getTime();
+  if (timeUntilNext < 10 * 60 * 1000) {
+    result.setMinutes(roundedMinutes + 10);
+  }
+  
+  return result;
+};
+
+// Update the formatScheduledTime function
+const formatScheduledTime = (timestamp: number) => {
+  const date = new Date(timestamp);
+  return date
+    .toLocaleTimeString(undefined, {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    })
+    .toUpperCase()
+    .replace(/\s/g, ""); // Remove spaces between time and AM/PM
+};
+
+// Update the CountdownTimer component to show minutes:seconds
+const CountdownTimer = ({ targetTime }: { targetTime: number }) => {
+  const [timeLeft, setTimeLeft] = useState<string>("");
+
+  useEffect(() => {
+    const calculateTimeLeft = () => {
+      const now = Date.now();
+      const difference = targetTime - now;
+
+      if (difference <= 0) {
+        return "Starting soon...";
+      }
+
+      const minutes = Math.floor(difference / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
+
+      return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+    };
+
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft());
+    }, 1000);
+
+    setTimeLeft(calculateTimeLeft());
+
+    return () => clearInterval(timer);
+  }, [targetTime]);
+
+  return (
+    <div className="text-[40px] font-mono font-bold text-indigo-300/90 tracking-wider">
+      {timeLeft}
+    </div>
+  );
+};
 
 export const PlayerView = () => {
   const gameState = GameContext.useSelector((state) => state);
@@ -111,6 +212,165 @@ const LobbyDisplay = ({ playerName }: { playerName: string }) => {
   const gameState = GameContext.useSelector((state) => state.public);
   const userId = SessionContext.useSelector((state) => state.public.userId);
   const hasPaid = gameState.paidPlayers.includes(userId);
+  const player = gameState.players.find((p) => p.id === userId);
+  const send = GameContext.useSend();
+  const { publicKey, sendTransaction } = useWallet();
+  const { connection } = useConnection();
+  const [tokenAccount, setTokenAccount] = useState<{
+    exists: boolean;
+    balance: number;
+    isInitialized: boolean;
+  }>({
+    exists: false,
+    balance: 0,
+    isInitialized: false,
+  });
+
+  // Add effect to fetch token balance
+  useEffect(() => {
+    const fetchTokenAccount = async () => {
+      if (!publicKey || !connection) {
+        setTokenAccount({ exists: false, balance: 0, isInitialized: true });
+        return;
+      }
+
+      try {
+        const tokenAccountAddress = await getAssociatedTokenAddress(
+          TJAM_TOKEN_MINT,
+          publicKey
+        );
+
+        const accountInfo = await connection.getAccountInfo(tokenAccountAddress);
+        
+        if (accountInfo) {
+          const tokenBalance = await connection.getTokenAccountBalance(tokenAccountAddress);
+          setTokenAccount({
+            exists: true,
+            balance: Number(tokenBalance.value.uiAmount || 0),
+            isInitialized: true,
+          });
+        } else {
+          setTokenAccount({
+            exists: false,
+            balance: 0,
+            isInitialized: true,
+          });
+        }
+      } catch (err) {
+        console.error("Error fetching token account:", err);
+        setTokenAccount({
+          exists: false,
+          balance: 0,
+          isInitialized: true,
+        });
+      }
+    };
+
+    if (publicKey) {
+      fetchTokenAccount();
+    }
+  }, [publicKey, connection]);
+
+  // Calculate current prizes and potential max prizes
+  const currentPrizes = calculatePrizes(
+    gameState.entryFee,
+    gameState.paidPlayers.length
+  );
+  const maxPrizes = calculatePrizes(
+    gameState.entryFee,
+    gameState.settings.maxPlayers
+  );
+
+  const handleEnterGame = async () => {
+    if (!publicKey || !connection || !sendTransaction) return;
+
+    try {
+      // Get player's token account
+      const playerTokenAccount = await getAssociatedTokenAddress(
+        TJAM_TOKEN_MINT,
+        publicKey
+      );
+
+      // Create transaction to transfer entry fee
+      const transaction = new Transaction();
+      // Add transfer instruction here
+      // ... (we'll need to implement the token transfer)
+
+      // Send transaction
+      const signature = await sendTransaction(transaction, connection);
+
+      // Wait for confirmation
+      await connection.confirmTransaction(signature);
+
+      // Submit the entry fee to the game
+      send({
+        type: "SUBMIT_ENTRY_FEE",
+        transactionSignature: signature,
+      });
+    } catch (err) {
+      console.error("Error submitting entry fee:", err);
+    }
+  };
+
+  // Function to render the action button based on state
+  const renderActionButton = () => {
+    if (!publicKey) {
+      return (
+        <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 border border-gray-700/50">
+          <div className="flex flex-col items-center space-y-4">
+            <WalletMultiButton className="w-full py-4 px-8 rounded-xl text-xl font-medium bg-[#6D28D9] hover:bg-[#5B21B6] text-white disabled:opacity-50" />
+            <div className="text-gray-400 text-sm">
+              Connect your wallet to play
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (!tokenAccount.exists) {
+      return (
+        <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 border border-gray-700/50 space-y-4">
+          <TokenBalance />
+          <div className="text-center text-amber-400/80 text-sm">
+            Create a TJAM token account to play
+          </div>
+        </div>
+      );
+    }
+
+    if (tokenAccount.balance < 100) {
+      return (
+        <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 border border-gray-700/50 space-y-4">
+          <motion.button
+            disabled
+            className="w-full py-4 px-8 rounded-xl text-xl font-bold bg-gray-700/50 text-gray-400 cursor-not-allowed"
+          >
+            Enter Game (100 TJAM)
+          </motion.button>
+          <div className="text-center text-amber-400/80 text-sm">
+            Insufficient TJAM balance. You need 100 TJAM to enter.
+            <br />
+            Current balance: {tokenAccount.balance} TJAM
+          </div>
+          <TokenBalance />
+        </div>
+      );
+    }
+
+    return (
+      <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 border border-gray-700/50">
+        <motion.button
+          onClick={handleEnterGame}
+          className="w-full py-4 px-8 rounded-xl text-xl font-bold transition-all duration-200
+            bg-gradient-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+        >
+          Enter Game (100 TJAM)
+        </motion.button>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
@@ -138,28 +398,84 @@ const LobbyDisplay = ({ playerName }: { playerName: string }) => {
         exit={{ opacity: 0, scale: 0.9 }}
         className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 max-w-2xl w-full space-y-8"
       >
-        <div className="text-center">
-          <h1 className="text-4xl font-bold mb-2 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-            Welcome, {playerName}!
+        <div className="text-center space-y-4">
+          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+            {player ? `Welcome, ${playerName}!` : "Game Lobby"}
           </h1>
-          <p className="text-xl text-white/70">
-            Entry Fee: {gameState.entryFee} JAM
-          </p>
-          {gameState.prizePool > 0 && (
-            <p className="text-lg text-indigo-300 mt-2">
-              Current Prize Pool: {gameState.prizePool} JAM
-            </p>
-          )}
+
+          {/* Add this new section */}
+          <div className="mt-4 text-center">
+            <div className="text-lg text-gray-400">Game starts at</div>
+            <div className="text-2xl font-bold text-indigo-400">
+              {formatScheduledTime(gameState.scheduledStartTime)}
+            </div>
+            <div className="text-sm text-gray-500">
+              {new Date(gameState.scheduledStartTime).toLocaleDateString(
+                undefined,
+                {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                }
+              )}
+            </div>
+            <div className="mt-2">
+              <CountdownTimer targetTime={gameState.scheduledStartTime} />
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="flex items-center justify-between text-gray-400 text-xl">
+              <span>Entry Tokens:</span>
+              <span className="text-white font-bold">100 TJAM</span>
+            </div>
+
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-400 text-xl">
+                  <span>🥇</span>
+                  <span>First Place:</span>
+                </div>
+                <span className="text-xl font-bold text-yellow-400">
+                  560 TJAM
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-400 text-xl">
+                  <span>🥈</span>
+                  <span>Second Place:</span>
+                </div>
+                <div className="text-xl font-bold text-gray-300">270 TJAM</div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-gray-400 text-xl">
+                  <span>🥉</span>
+                  <span>Third Place:</span>
+                </div>
+                <span className="text-xl font-bold text-amber-600">
+                  110 TJAM
+                </span>
+              </div>
+
+              <div className="pt-4 mt-4 border-t border-gray-700/30">
+                <div className="flex items-center justify-between text-gray-400 text-lg">
+                  <div className="flex items-center gap-2">
+                    <span>👑</span>
+                    <span>Host Earnings:</span>
+                  </div>
+                  <span className="font-bold">36 TJAM</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         {!hasPaid ? (
           <div className="space-y-6">
-            <WalletSection />
-            {hasPaid && (
-              <div className="bg-green-500/20 text-green-300 p-4 rounded-xl text-center">
-                Entry fee paid! Waiting for game to start...
-              </div>
-            )}
+            {publicKey ? <WalletSection /> : null}
+            {renderActionButton()}
           </div>
         ) : (
           <div className="space-y-6 text-center">
@@ -169,23 +485,21 @@ const LobbyDisplay = ({ playerName }: { playerName: string }) => {
             <div className="flex items-center justify-center gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-indigo-400" />
               <span className="text-indigo-300">
-                Waiting for other players...{" "}
-                {gameState.paidPlayers.length}/{gameState.settings.maxPlayers}
+                Waiting for other players... {gameState.paidPlayers.length}/
+                {gameState.settings.maxPlayers}
               </span>
             </div>
           </div>
         )}
 
-        {/* Share Game Link */}
+        {/* Player List */}
+        <PlayerList />
+
+        {/* Share Game Link or Enter Game Button */}
         <div className="mb-8">
-          <h2 className="text-xl font-bold text-indigo-300 text-center mb-4">
-            Share Game Link
-          </h2>
           <ShareGameLink host={window.location.host} gameId={gameState.id} />
         </div>
 
-        {/* Player List */}
-        <PlayerList />
       </motion.div>
     </div>
   );
@@ -560,216 +874,368 @@ function getOrdinalSuffix(n: number): string {
   return s[(v - 20) % 10] || s[v] || s[0];
 }
 
-// Add new wallet section component
+// WalletSection: Handles wallet connection, token balances, and token minting
 const WalletSection = () => {
-  const { connected, publicKey } = useWallet();
+  const { connected, publicKey, disconnect, sendTransaction } = useWallet();
   const { connection } = useConnection();
-  const sessionState = SessionContext.useSelector(state => state.public);
-  const send = SessionContext.useSend();
-  const [solBalance, setSolBalance] = useState(0);
-  const [jamBalance, setJamBalance] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Add token account state
+  const [tokenAccount, setTokenAccount] = useState<TokenAccountState>({
+    exists: false,
+    balance: 0,
+    isInitialized: false,
+  });
+
+  // Add state variables
+  const [displayAddress, setDisplayAddress] = useState<string>("");
   const [copied, setCopied] = useState(false);
+  const [solBalance, setSolBalance] = useState(0);
 
-  const MINIMUM_SOL = 0.01;
-  const ENTRY_FEE = 100;
+  // Add these new state variables
+  const [jamBalance, setJamBalance] = useState(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [depositAmount, setDepositAmount] = useState<number>(0.1);
+  const [isDepositing, setIsDepositing] = useState(false);
 
-  // Store wallet public key when connected
-  useEffect(() => {
-    if (connected && publicKey) {
-      send({ 
-        type: "CONNECT_WALLET", 
-        publicKey: publicKey.toString() 
-      });
-    }
-  }, [connected, publicKey, send]);
+  // Add these constants
+  const MIN_SOL_DEPOSIT = 0.05;
+  const SOL_TO_TJAM_RATE = 1000;
+  const SUGGESTED_SOL_PERCENTAGE = 0.15;
 
-  // Use stored public key if available
-  const effectivePublicKey = useMemo(() => {
-    if (publicKey) return publicKey;
-    if (sessionState.walletPublicKey) {
-      return new PublicKey(sessionState.walletPublicKey);
-    }
-    return null;
-  }, [publicKey, sessionState.walletPublicKey]);
+  // Add these helper functions
+  const getDepositHelperText = () => {
+    if (solBalance === 0) return "No SOL available";
+    const maxDeposit = Math.floor(solBalance * 100) / 100; // Round down to 2 decimals
+    return `Available: ${maxDeposit} SOL`;
+  };
 
-  // Use effectivePublicKey in balance fetching
+  const handleDepositChange = (value: number) => {
+    // Ensure deposit amount doesn't exceed available balance
+    const maxDeposit = Math.floor(solBalance * 100) / 100;
+    const newAmount = Math.min(value, maxDeposit);
+    setDepositAmount(newAmount);
+  };
+
+  // Update fetchBalances to also check token account
   const fetchBalances = async () => {
-    if (!effectivePublicKey) return;
-    
-    setIsRefreshing(true);
-    try {
-      const solBalance = await connection.getBalance(effectivePublicKey);
-      setSolBalance(solBalance / LAMPORTS_PER_SOL);
+    if (!publicKey || !connection) return;
 
-      const tokenAccount = await getAssociatedTokenAddress(
-        JAM_TOKEN_MINT,
-        effectivePublicKey
+    try {
+      // Get SOL balance
+      const balance = await connection.getBalance(publicKey);
+      setSolBalance(balance / LAMPORTS_PER_SOL);
+
+      // Get token account
+      const tokenAccountAddress = await getAssociatedTokenAddress(
+        TJAM_TOKEN_MINT,
+        publicKey
       );
 
-      try {
-        const tokenBalance = await connection.getTokenAccountBalance(tokenAccount);
-        setJamBalance(Number(tokenBalance.value.uiAmount || 0));
-      } catch (err) {
-        console.log("Token account doesn't exist yet:", err);
-        setJamBalance(0);
+      const accountInfo = await connection.getAccountInfo(tokenAccountAddress);
+
+      if (accountInfo) {
+        const tokenBalance = await connection.getTokenAccountBalance(
+          tokenAccountAddress
+        );
+        setTokenAccount({
+          exists: true,
+          balance: Number(tokenBalance.value.uiAmount || 0),
+          isInitialized: true,
+        });
+      } else {
+        setTokenAccount({
+          exists: false,
+          balance: 0,
+          isInitialized: true,
+        });
       }
-      setError(null);
     } catch (err) {
       console.error("Error fetching balances:", err);
-      setError("Failed to fetch wallet balances");
+    }
+  };
+
+  const handleAddTokens = async () => {
+    if (!publicKey || !connection) return;
+    setIsRefreshing(true);
+    setError(null);
+    try {
+      // Implementation from your existing handleAddTokens function
+      // This should create the token account if it doesn't exist
+      await createTokenAccount();
+      await fetchBalances();
+      setSuccess("Successfully added TJAM token account!");
+    } catch (err) {
+      console.error("Error adding tokens:", err);
+      setError(err instanceof Error ? err.message : "Failed to add tokens");
     } finally {
       setIsRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchBalances();
-  }, [effectivePublicKey, connection]);
-
-  const getActionButton = () => {
-    if (solBalance < MINIMUM_SOL) {
-      return (
-        <div className="space-y-2">
-          <button 
-            onClick={() => window.open("https://faucet.solana.com", "_blank")}
-            className="w-full bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            <svg 
-              className="w-5 h-5" 
-              viewBox="0 0 24 24" 
-              fill="none" 
-              stroke="currentColor"
-              strokeWidth="2"
-            >
-              <path d="M12 2v6m0 0v6m0-6h6m-6 0H6" />
-            </svg>
-            Get Devnet SOL
-          </button>
-          <button
-            onClick={fetchBalances}
-            disabled={isRefreshing}
-            className="w-full bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/30 px-4 py-2 rounded-xl transition-colors flex items-center justify-center gap-2"
-          >
-            {isRefreshing ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Refreshing...
-              </>
-            ) : (
-              <>
-                <svg 
-                  className="w-5 h-5" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke="currentColor"
-                  strokeWidth="2"
-                >
-                  <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh Balance
-              </>
-            )}
-          </button>
-        </div>
-      );
+  const handleDeposit = async () => {
+    if (!publicKey || !connection || !sendTransaction) return;
+    setIsDepositing(true);
+    setError(null);
+    try {
+      // Implementation from your existing handleDeposit function
+      // This should handle the SOL to TJAM conversion
+      await depositSolForTokens();
+      await fetchBalances();
+      setSuccess(`Successfully deposited ${depositAmount} SOL for TJAM!`);
+    } catch (err) {
+      console.error("Error depositing:", err);
+      setError(err instanceof Error ? err.message : "Failed to deposit");
+    } finally {
+      setIsDepositing(false);
     }
-    if (jamBalance < ENTRY_FEE) {
-      return (
-        <button 
-          onClick={() => window.open("https://jup.ag/swap/SOL-JAM", "_blank")}
-          className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-xl transition-colors flex items-center justify-center gap-2"
-        >
-          <svg 
-            className="w-5 h-5" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor"
-            strokeWidth="2"
-          >
-            <path d="M12 2v6m0 0v6m0-6h6m-6 0H6" />
-          </svg>
-          Get JAM Tokens
-        </button>
-      );
-    }
-    // ... rest of the button logic
   };
 
-  const copyAddress = async () => {
+  // Update useEffect to reset token account state
+  useEffect(() => {
     if (publicKey) {
+      const address = publicKey.toString();
+      setDisplayAddress(address.slice(0, 4) + "..." + address.slice(-4));
+      fetchBalances();
+    } else {
+      setDisplayAddress("");
+      setSolBalance(0);
+      setTokenAccount({ exists: false, balance: 0, isInitialized: false });
+    }
+  }, [publicKey, connection]);
+
+  // Function to copy wallet address
+  const copyAddress = async () => {
+    if (!publicKey) return;
+    try {
       await navigator.clipboard.writeText(publicKey.toString());
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy address:", err);
     }
   };
 
-  if (!connected) {
-    return (
-      <motion.div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-        <h2 className="text-xl text-indigo-300 mb-4">Connect Wallet to Play</h2>
-        <WalletMultiButton className="!bg-indigo-600 hover:!bg-indigo-700" />
-      </motion.div>
-    );
-  }
+  // Update createTokenAccount with more logging
+  const createTokenAccount = async () => {
+    if (!publicKey || !connection) {
+      console.log("createTokenAccount: Missing publicKey or connection", {
+        hasPublicKey: !!publicKey,
+        hasConnection: !!connection,
+      });
+      return;
+    }
 
+    try {
+      console.log("Creating token account for:", {
+        mint: TJAM_TOKEN_MINT.toString(),
+        owner: publicKey.toString(),
+      });
+
+      // Get the token account address
+      const tokenAccount = await getAssociatedTokenAddress(
+        TJAM_TOKEN_MINT,
+        publicKey
+      );
+      console.log("Associated token address:", tokenAccount.toString());
+
+      // Check if account already exists
+      const accountInfo = await connection.getAccountInfo(tokenAccount);
+      console.log("Existing account info:", {
+        exists: !!accountInfo,
+        owner: accountInfo?.owner?.toString(),
+        size: accountInfo?.data.length,
+      });
+
+      if (accountInfo) {
+        console.log("Token account already exists, skipping creation");
+        setSuccess("Token account already exists!");
+        return;
+      }
+
+      // Create the transaction
+      const transaction = new Transaction();
+
+      // Add create account instruction
+      const createInstruction = createAssociatedTokenAccountInstruction(
+        publicKey, // payer
+        tokenAccount, // new account address
+        publicKey, // owner
+        TJAM_TOKEN_MINT // token mint
+      );
+      transaction.add(createInstruction);
+
+      console.log("Created instruction:", {
+        payer: publicKey.toString(),
+        newAccount: tokenAccount.toString(),
+        owner: publicKey.toString(),
+        mint: TJAM_TOKEN_MINT.toString(),
+      });
+
+      // Get latest blockhash
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      console.log("Sending transaction with blockhash:", blockhash);
+
+      // Send and confirm transaction
+      const signature = await sendTransaction(transaction, connection, {
+        skipPreflight: true,
+        maxRetries: 3,
+      });
+
+      console.log("Transaction sent:", signature);
+
+      const confirmation = await connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight,
+      });
+
+      console.log("Transaction confirmed:", {
+        signature,
+        confirmation,
+        err: confirmation.value.err,
+      });
+
+      if (confirmation.value.err) {
+        throw new Error(
+          `Transaction failed: ${JSON.stringify(confirmation.value.err)}`
+        );
+      }
+
+      // Verify account was created
+      const newAccountInfo = await connection.getAccountInfo(tokenAccount);
+      console.log("New account verification:", {
+        exists: !!newAccountInfo,
+        owner: newAccountInfo?.owner?.toString(),
+        size: newAccountInfo?.data.length,
+      });
+
+      setSuccess("Token account created successfully!");
+    } catch (err) {
+      console.error("Error in createTokenAccount:", err);
+      throw err;
+    }
+  };
+
+  const depositSolForTokens = async () => {
+    if (!publicKey || !connection || !sendTransaction) return;
+
+    try {
+      console.log("Starting deposit process:", {
+        amount: depositAmount,
+        expectedTjam: depositAmount * SOL_TO_TJAM_RATE,
+      });
+
+      // Get the token account address
+      const tokenAccount = await getAssociatedTokenAddress(
+        TJAM_TOKEN_MINT,
+        publicKey
+      );
+      console.log("User token account:", tokenAccount.toString());
+
+      // Get the treasury account
+      const treasuryAccount = TJAM_TOKEN_AUTHORITY;
+      console.log("Treasury account:", treasuryAccount.toString());
+
+      // Create transaction
+      const transaction = new Transaction();
+
+      // Only transfer SOL to treasury - the backend will handle minting TJAM
+      transaction.add(
+        SystemProgram.transfer({
+          fromPubkey: publicKey,
+          toPubkey: treasuryAccount,
+          lamports: depositAmount * LAMPORTS_PER_SOL,
+        })
+      );
+
+      console.log("Transaction built with instructions:", {
+        solTransfer: `${depositAmount} SOL to ${treasuryAccount.toString()}`,
+      });
+
+      // Get latest blockhash
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = publicKey;
+
+      console.log("Sending transaction...");
+
+      // Send and confirm transaction
+      const signature = await sendTransaction(transaction, connection);
+      console.log("Transaction sent:", signature);
+
+      const confirmation = await connection.confirmTransaction({
+        signature,
+        blockhash,
+        lastValidBlockHeight,
+      });
+
+      console.log("Transaction confirmed:", {
+        signature,
+        err: confirmation.value.err,
+      });
+
+      if (confirmation.value.err) {
+        throw new Error(
+          `Transaction failed: ${JSON.stringify(confirmation.value.err)}`
+        );
+      }
+
+      // Wait a bit longer for chain state to update
+      await new Promise((resolve) => setTimeout(resolve, 3000));
+
+      // Fetch all balances to update both SOL and TJAM
+      await fetchBalances();
+
+      setSuccess(
+        `Successfully deposited ${depositAmount} SOL. TJAM tokens will be minted shortly.`
+      );
+    } catch (err) {
+      console.error("Error depositing SOL for TJAM:", err);
+      throw err;
+    }
+  };
+
+  // Add this useEffect for automatic balance refreshing
+  useEffect(() => {
+    if (!publicKey || !connection) return;
+
+    // Initial fetch
+    fetchBalances();
+
+    // Set up automatic refresh every 10 seconds
+    const interval = setInterval(() => {
+      console.log("Auto-refreshing balances...");
+      fetchBalances();
+    }, 10000);
+
+    // Cleanup
+    return () => clearInterval(interval);
+  }, [publicKey, connection]);
+
+  // Update the wallet address section JSX
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
     >
-      {/* Wallet Address Section */}
-      <div className="bg-gray-800/50 p-4 rounded-xl">
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-400">Your Wallet</div>
-          <motion.button
-            onClick={copyAddress}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="text-indigo-400 hover:text-indigo-300 transition-colors"
-          >
-            {copied ? (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="text-green-400"
-              >
-                Copied!
-              </motion.span>
-            ) : (
-              <div className="flex items-center gap-1">
-                <Copy className="w-4 h-4" />
-                <span className="text-sm">Copy</span>
-              </div>
-            )}
-          </motion.button>
-        </div>
-        <div className="mt-1 font-mono text-sm break-all">
-          {publicKey?.toString()}
-        </div>
-      </div>
-
-      {/* Balances Grid */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-gray-800/50 p-4 rounded-xl">
-          <div className="text-sm text-gray-400">SOL Balance</div>
-          <div className="text-xl font-bold">{solBalance.toFixed(4)} SOL</div>
-        </div>
-        <div className="bg-gray-800/50 p-4 rounded-xl">
-          <div className="text-sm text-gray-400">JAM Balance</div>
-          <div className="text-xl font-bold">{jamBalance} JAM</div>
-        </div>
-      </div>
-
-      {error && (
-        <div className="bg-red-500/20 text-red-300 p-4 rounded-xl text-center">
-          {error}
-        </div>
+      {connected && (
+        <WalletInfo
+          address={displayAddress}
+          fullAddress={publicKey?.toString()}
+          balance={solBalance}
+          onCopy={copyAddress}
+          onDisconnect={disconnect}
+          copied={copied}
+        />
       )}
-
-      {getActionButton()}
     </motion.div>
   );
 };

@@ -219,32 +219,58 @@ export const gameMachine = setup({
         draft.hostName = name;
       }),
     })),
+    updateScheduledStartTime: assign(({ context }, { time }: { time: number }) => ({
+      public: produce(context.public, (draft) => {
+        draft.scheduledStartTime = time;
+      }),
+    })),
   },
 }).createMachine({
   id: "triviaGame",
-  context: ({ input }: { input: GameInput }) => ({
-    public: {
-      id: input.id,
-      hostId: input.caller.id,
-      hostName: input.hostName,
-      gameCode: undefined,
-      players: [],
-      currentQuestion: null,
-      buzzerQueue: [],
-      gameStatus: "lobby" as const,
-      winner: null,
-      settings: {
-        maxPlayers: 10,
-        questionCount: 40,
+  context: ({ input }: { input: GameInput }) => {
+    // Get current time and clear seconds
+    const now = new Date();
+    now.setSeconds(0, 0);
+    
+    // Get minutes and round up to next 10
+    const minutes = now.getMinutes();
+    const roundedMinutes = Math.ceil(minutes / 10) * 10;
+    
+    // Create result time
+    const nextTenMinutes = new Date(now);
+    nextTenMinutes.setMinutes(roundedMinutes);
+    
+    // If we're less than 10 minutes away, add 10 minutes
+    const timeUntilNext = nextTenMinutes.getTime() - now.getTime();
+    if (timeUntilNext < 10 * 60 * 1000) {
+      nextTenMinutes.setMinutes(roundedMinutes + 10);
+    }
+
+    return {
+      public: {
+        id: input.id,
+        hostId: input.caller.id,
+        hostName: input.hostName,
+        gameCode: undefined,
+        players: [],
+        currentQuestion: null,
+        buzzerQueue: [],
+        gameStatus: "lobby" as const,
+        winner: null,
+        settings: {
+          maxPlayers: 10,
+          questionCount: 40,
+        },
+        questionNumber: 0,
+        entryFee: 100,
+        prizePool: 0,
+        paidPlayers: [],
+        tokenTransactions: {},
+        scheduledStartTime: nextTenMinutes.getTime(),
       },
-      questionNumber: 0,
-      entryFee: 100,
-      prizePool: 0,
-      paidPlayers: [],
-      tokenTransactions: {},
-    },
-    private: {},
-  }),
+      private: {},
+    };
+  },
   initial: "lobby",
   states: {
     lobby: {
