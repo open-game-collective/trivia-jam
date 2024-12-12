@@ -15,6 +15,12 @@ import { createAccessToken, createActorFetch } from "actor-kit/server";
 import { SessionProvider } from "./session.context";
 import { SessionMachine } from "./session.machine";
 import styles from "./styles.css";
+import { useMemo } from 'react';
+import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
+import { PhantomWalletAdapter } from '@solana/wallet-adapter-phantom';
+import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
+import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
+import { clusterApiUrl } from '@solana/web3.js';
 
 export const links: LinksFunction = () => [
   { rel: "stylesheet", href: styles },
@@ -66,28 +72,48 @@ export default function App() {
     useLoaderData<typeof loader>();
   const isDevelopment = NODE_ENV === "development";
 
+  // Set up network
+  const network = WalletAdapterNetwork.Devnet; // or .Mainnet for production
+  const endpoint = useMemo(() => clusterApiUrl(network), [network]);
+
+  // Set up wallet adapters
+  const wallets = useMemo(
+    () => [
+      new PhantomWalletAdapter(),
+    ],
+    [network]
+  );
+
   return (
-    <html lang="en">
-      <head>
-        <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <Meta />
-        <Links />
-      </head>
-      <body>
-        <SessionProvider
-          host={host}
-          actorId={sessionId}
-          checksum={payload.checksum}
-          accessToken={accessToken}
-          initialSnapshot={payload.snapshot}
-        >
-          <Outlet />
-        </SessionProvider>
-        <ScrollRestoration />
-        <Scripts />
-        {isDevelopment && <LiveReload />}
-      </body>
-    </html>
+    <>
+      <html lang="en">
+        <head>
+          <meta charSet="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <Meta />
+          <Links />
+        </head>
+        <body>
+          <ConnectionProvider endpoint={endpoint}>
+            <WalletProvider wallets={wallets} autoConnect>
+              <WalletModalProvider>
+                <SessionProvider
+                  host={host}
+                  actorId={sessionId}
+                  checksum={payload.checksum}
+                  accessToken={accessToken}
+                  initialSnapshot={payload.snapshot}
+                >
+                  <Outlet />
+                </SessionProvider>
+              </WalletModalProvider>
+            </WalletProvider>
+          </ConnectionProvider>
+          <ScrollRestoration />
+          <Scripts />
+          {isDevelopment && <LiveReload />}
+        </body>
+      </html>
+    </>
   );
 }

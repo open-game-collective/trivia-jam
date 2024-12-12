@@ -5,7 +5,7 @@ export const GameInputPropsSchema = z.object({
   hostName: z.string(),
 });
 
-// Event Schemas
+// Client Events (things users can do)
 export const GameClientEventSchema = z.discriminatedUnion("type", [
   // Host Events
   z.object({
@@ -53,8 +53,43 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
     type: z.literal("REMOVE_PLAYER"),
     playerId: z.string(),
   }),
+
+  // Only client-side token action
+  z.object({
+    type: z.literal("SUBMIT_ENTRY_FEE"),
+    transactionSignature: z.string(),
+  }),
+
+  // Add new service events
+  z.object({
+    type: z.literal("INITIALIZE_GAME_VAULT"),
+    vaultAddress: z.string(),
+  }),
+  z.object({
+    type: z.literal("VERIFY_ENTRY_FEE"),
+    playerId: z.string(),
+    transactionSignature: z.string(),
+  }),
+  z.object({
+    type: z.literal("REWARDS_DISTRIBUTED"),
+    transactions: z.array(z.object({
+      playerId: z.string(),
+      signature: z.string(),
+    })),
+  }),
+  z.object({
+    type: z.literal("SET_HOST_NAME"),
+    name: z.string(),
+  }),
+
+  // Add new event for updating scheduled start time
+  z.object({
+    type: z.literal("UPDATE_SCHEDULED_START"),
+    time: z.number(),
+  }),
 ]);
 
+// Service Events (authoritative responses)
 export const GameServiceEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("SYNC_PLAYERS"),
@@ -65,5 +100,73 @@ export const GameServiceEventSchema = z.discriminatedUnion("type", [
         score: z.number(),
       })
     ),
+  }),
+  z.object({
+    type: z.literal("INITIALIZE_GAME_VAULT"),
+    vaultAddress: z.string(),
+  }),
+  z.object({
+    type: z.literal("VERIFY_ENTRY_FEE"),
+    playerId: z.string(),
+    transactionSignature: z.string(),
+  }),
+  z.object({
+    type: z.literal("ENTRY_FEE_FAILED"),
+    playerId: z.string(),
+    error: z.string(),
+  }),
+  z.object({
+    type: z.literal("ENTRY_FEE_VERIFIED"),
+    playerId: z.string(),
+  }),
+  z.object({
+    type: z.literal("REWARDS_DISTRIBUTED"),
+    transactions: z.array(z.object({
+      playerId: z.string(),
+      amount: z.number(),
+      signature: z.string(),
+    })),
+  }),
+
+  // Add new service events
+  z.object({
+    type: z.literal("INITIALIZE_GAME_VAULT"),
+    vaultAddress: z.string(),
+  }),
+  z.object({
+    type: z.literal("VERIFY_ENTRY_FEE"),
+    playerId: z.string(),
+    transactionSignature: z.string(),
+  }),
+  z.object({
+    type: z.literal("REWARDS_DISTRIBUTED"),
+    transactions: z.array(z.object({
+      playerId: z.string(),
+      signature: z.string(),
+    })),
+  }),
+
+  // Token-related service events
+  z.object({
+    type: z.literal("VAULT_INITIALIZED"),
+    vaultAddress: z.string(),
+  }),
+  z.object({
+    type: z.literal("ENTRY_FEE_VERIFIED"),
+    playerId: z.string(),
+    transactionSignature: z.string(),
+  }),
+  z.object({
+    type: z.literal("ENTRY_FEE_FAILED"),
+    playerId: z.string(),
+    error: z.string(),
+  }),
+  z.object({
+    type: z.literal("REWARDS_DISTRIBUTED"),
+    transactions: z.array(z.object({
+      playerId: z.string(),
+      amount: z.number(),
+      signature: z.string(),
+    })),
   }),
 ]);
