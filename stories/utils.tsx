@@ -7,26 +7,46 @@ import { SessionMachine } from "../app/session.machine";
 
 export const defaultGameSnapshot = {
   public: {
-    id: "test-game-id",
-    gameCode: "TEST123",
+    id: "game-123",
     hostId: "host-123",
     hostName: "Test Host",
-    players: [
-      { id: "host-123", name: "Test Host", score: 0 },
-      { id: "player-456", name: "Test Player", score: 0 },
-    ],
+    gameCode: "ABC123",
+    players: [] as Array<{ id: string; name: string; score: number }>,
     currentQuestion: null,
-    buzzerQueue: [],
     gameStatus: "lobby" as const,
     winner: null,
     settings: {
       maxPlayers: 10,
       questionCount: 10,
+      answerTimeWindow: 30,
     },
+    questions: {} as Record<string, { 
+      id: string; 
+      text: string; 
+      correctAnswer: number;
+      requireExactAnswer: boolean;
+    }>,
+    questionResults: [] as Array<{
+      questionId: string;
+      questionNumber: number;
+      answers: Array<{
+        playerId: string;
+        playerName: string;
+        value: number;
+        timestamp: number;
+      }>;
+      scores: Array<{
+        playerId: string;
+        playerName: string;
+        points: number;
+        position: number;
+        timeTaken: number;
+      }>;
+    }>,
     questionNumber: 0,
   },
   private: {},
-  value: { lobby: "ready" },
+  value: { lobby: "ready" } as const,
 } satisfies CallerSnapshotFrom<GameMachine>;
 
 export const defaultSessionSnapshot = {
