@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect } from "@storybook/test";
+import { expect, waitFor, within } from "@storybook/test";
 import { userEvent } from "@storybook/testing-library";
 import { withActorKit } from "actor-kit/storybook";
 import { createActorKitMockClient } from "actor-kit/test";
@@ -917,5 +917,55 @@ export const MultiplePlayersWithMixedAnswers: Story = {
         },
       },
     },
+  },
+};
+
+export const NameEntryWithHelp: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            players: [],
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    
+    // Find and click the help button
+    const helpButton = await canvas.findByRole('button', { name: /how to play/i });
+    await userEvent.click(helpButton);
+    
+    // Verify help modal appears
+    const modal = await canvas.findByText('How to Play');
+    expect(modal).toBeInTheDocument();
+    
+    // Verify modal content
+    expect(canvas.getByText('Game Basics')).toBeInTheDocument();
+    expect(canvas.getByText('Scoring')).toBeInTheDocument();
+    expect(canvas.getByText('Quick Tips')).toBeInTheDocument();
+    
+    // Close modal
+    const closeButton = canvas.getByRole('button', { name: /let's play/i });
+    await userEvent.click(closeButton);
+    
+    // Verify modal is closed
+    await waitFor(() => {
+      expect(canvas.queryByText('How to Play')).not.toBeInTheDocument();
+    });
   },
 };

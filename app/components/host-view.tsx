@@ -10,11 +10,26 @@ import {
   Trophy,
   Users,
   X,
+  Settings,
 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { GameContext } from "~/game.context";
 import { SessionContext } from "~/session.context";
 import type { Answer } from "~/game.types";
+import * as Drawer from "vaul";
+
+type GameSettings = {
+  maxPlayers: number;
+  questionCount: number;
+  answerTimeWindow: number;
+};
+
+type SettingsModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  currentSettings: GameSettings;
+  onSave: (settings: GameSettings) => void;
+};
 
 export const HostView = ({ 
   host,
@@ -200,6 +215,113 @@ const PlayerList = ({
   );
 };
 
+const SettingsModal = ({ isOpen, onClose, currentSettings, onSave }: SettingsModalProps) => {
+  const [settings, setSettings] = useState<GameSettings>(currentSettings);
+  const playerLimits = [10, 100, 1000, 10000, 100000, 1000000];
+
+  if (!isOpen) return null;
+
+  return (
+    <Drawer.Root open={isOpen} onOpenChange={onClose}>
+      <Drawer.Portal>
+        <Drawer.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]" />
+        <Drawer.Content className="bg-gradient-to-br from-indigo-900/90 to-purple-900/90 flex flex-col fixed bottom-0 left-0 right-0 max-h-[85vh] rounded-t-[10px] border-t border-white/20 z-[100]">
+          <div className="p-4 pb-6 flex-1 overflow-y-auto">
+            {/* Drawer handle */}
+            <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/20 mb-4" />
+
+            <div className="max-w-xl mx-auto px-2">
+              <h2 className="text-2xl font-bold mb-6 text-center bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+                Game Settings
+              </h2>
+
+              <div className="space-y-4">
+                {/* Question Count Setting */}
+                <div className="bg-white/10 rounded-xl p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-semibold text-indigo-300">Questions</h3>
+                    <input
+                      id="questionCount"
+                      type="number"
+                      min="1"
+                      max="50"
+                      value={settings.questionCount}
+                      onChange={(e) => setSettings((s) => ({ ...s, questionCount: parseInt(e.target.value) || 1 }))}
+                      className="w-20 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      aria-label="Number of Questions"
+                    />
+                  </div>
+                  <p className="text-sm text-white/60">Number of questions in the game</p>
+                </div>
+
+                {/* Answer Time Window Setting */}
+                <div className="bg-white/10 rounded-xl p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-semibold text-indigo-300">Time Limit</h3>
+                    <div className="flex items-center gap-2">
+                      <input
+                        id="answerTime"
+                        type="number"
+                        min="5"
+                        max="120"
+                        value={settings.answerTimeWindow}
+                        onChange={(e) => setSettings((s) => ({ ...s, answerTimeWindow: parseInt(e.target.value) || 5 }))}
+                        className="w-16 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        aria-label="Answer Time Window"
+                      />
+                      <span className="text-white/60 text-sm">sec</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-white/60">Time to answer each question</p>
+                </div>
+
+                {/* Max Players Setting */}
+                <div className="bg-white/10 rounded-xl p-4">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-lg font-semibold text-indigo-300">Player Limit</h3>
+                    <select
+                      id="maxPlayers"
+                      value={settings.maxPlayers}
+                      onChange={(e) => setSettings((s) => ({ ...s, maxPlayers: parseInt(e.target.value) }))}
+                      className="w-32 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      aria-label="Max Players"
+                    >
+                      {playerLimits.map(limit => (
+                        <option key={limit} value={limit}>
+                          {limit.toLocaleString()}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-sm text-white/60">Maximum number of players allowed</p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-3">
+                <button
+                  onClick={() => {
+                    onSave(settings);
+                    onClose();
+                  }}
+                  className="w-full bg-indigo-500 hover:bg-indigo-600 text-white font-semibold py-3 px-4 rounded-xl transition-colors"
+                >
+                  Save Changes
+                </button>
+                <button
+                  onClick={onClose}
+                  className="w-full bg-white/5 hover:bg-white/10 text-white/80 font-semibold py-3 px-4 rounded-xl transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </Drawer.Content>
+      </Drawer.Portal>
+    </Drawer.Root>
+  );
+};
+
 const LobbyControls = ({
   players,
   onStartGame,
@@ -214,6 +336,7 @@ const LobbyControls = ({
   const hasEnoughPlayers = players.length > 0;
   const [copied, setCopied] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Construct the game URL using the host and game ID
   const gameUrl = `https://${host}/games/${gameState.id}`;
@@ -241,6 +364,19 @@ const LobbyControls = ({
     setIsStarting(true);
     onStartGame();
   };
+
+  // Add settings handler
+  const handleSaveSettings = (newSettings: {
+    maxPlayers: number;
+    questionCount: number;
+    answerTimeWindow: number;
+  }) => {
+    send({ 
+      type: "UPDATE_SETTINGS", 
+      settings: newSettings
+    });
+  };
+
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
       {/* Background Animation */}
@@ -267,6 +403,19 @@ const LobbyControls = ({
         exit={{ opacity: 0, scale: 0.9 }}
         className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
       >
+        {/* Add Settings Button */}
+        <div className="absolute top-4 right-4">
+          <motion.button
+            onClick={() => setShowSettings(true)}
+            className="p-2 rounded-lg bg-gray-900/30 border border-gray-700/30 text-indigo-300 hover:text-indigo-200 transition-colors"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            aria-label="Settings"
+          >
+            <Settings className="w-5 h-5" />
+          </motion.button>
+        </div>
+
         {/* Game Link Section */}
         <div className="mb-8">
           <h2 className="text-xl font-bold text-indigo-300 text-center mb-4">
@@ -346,14 +495,6 @@ const LobbyControls = ({
           Game Lobby
         </h1>
 
-        <div className="mb-8">
-          <PlayerList 
-            players={players} 
-            hostId={gameState.hostId}
-            onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
-          />
-        </div>
-
         {/* Start Game Button */}
         <div className="space-y-3">
           <motion.button
@@ -391,6 +532,26 @@ const LobbyControls = ({
             </motion.p>
           )}
         </div>
+
+
+        <div className="mb-8">
+          <PlayerList 
+            players={players} 
+            hostId={gameState.hostId}
+            onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
+          />
+        </div>
+
+        <AnimatePresence>
+          {showSettings && (
+            <SettingsModal
+              isOpen={showSettings}
+              onClose={() => setShowSettings(false)}
+              currentSettings={gameState.settings}
+              onSave={handleSaveSettings}
+            />
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

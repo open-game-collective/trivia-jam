@@ -38,10 +38,9 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("UPDATE_SETTINGS"),
     settings: z.object({
-      maxPlayers: z.number().min(2).max(20),
+      maxPlayers: z.number().min(2).max(1000000),
       questionCount: z.number().min(1).max(50),
       answerTimeWindow: z.number().min(5).max(120),
-      requireExactAnswers: z.boolean(),
     }),
   }),
 

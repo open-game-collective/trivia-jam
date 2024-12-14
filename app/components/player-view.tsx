@@ -1,9 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { Check, Crown, Loader2, X } from "lucide-react";
+import { Check, Crown, Loader2, X, HelpCircle } from "lucide-react";
 import { useState, useEffect } from "react";
 import { GameContext } from "~/game.context";
 import { Answer, GamePublicContext } from "~/game.types";
 import { SessionContext } from "~/session.context";
+import { atom } from "nanostores";
+import { useStore } from "@nanostores/react";
+import { HelpModal } from "./help-modal";
 
 export const PlayerView = () => {
   const gameState = GameContext.useSelector((state) => state);
@@ -208,79 +211,119 @@ type Player = {
   score: number;
 };
 
-const LobbyDisplay = ({ player }: { player: Player }) => (
-  <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
-    {/* Background Animation */}
-    <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 opacity-10">
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
-          animate={{
-            rotate: [0, 360],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
+const LobbyDisplay = ({ player }: { player: Player }) => {
+  const [$showHelp] = useState(() => atom<boolean>(false));
+  const showHelp = useStore($showHelp);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+        </div>
       </div>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 text-center"
+      >
+        <h1 className="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+          Welcome, {player.name}!
+        </h1>
+        <p className="text-xl text-white/70 mb-8">
+          Waiting for host to start the game...
+        </p>
+        <Loader2 className="w-12 h-12 animate-spin mx-auto text-indigo-400 mb-8" />
+
+        {/* Add Help Button */}
+        <motion.button
+          onClick={() => $showHelp.set(true)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="text-white/80 hover:text-white transition duration-300 flex items-center justify-center mx-auto"
+        >
+          <HelpCircle className="mr-2" size={20} />
+          How to Play
+        </motion.button>
+      </motion.div>
+
+      <AnimatePresence>
+        {showHelp && <HelpModal $showHelp={$showHelp} />}
+      </AnimatePresence>
     </div>
+  );
+};
 
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 text-center"
-    >
-      <h1 className="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-        Welcome, {player.name}!
-      </h1>
-      <p className="text-xl text-white/70 mb-8">
-        Waiting for host to start the game...
-      </p>
-      <Loader2 className="w-12 h-12 animate-spin mx-auto text-indigo-400" />
-    </motion.div>
-  </div>
-);
+const WaitingDisplay = ({ player }: { player: Player }) => {
+  const [$showHelp] = useState(() => atom<boolean>(false));
+  const showHelp = useStore($showHelp);
 
-const WaitingDisplay = ({ player }: { player: Player }) => (
-  <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
-    {/* Background Animation */}
-    <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 opacity-10">
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
-          animate={{
-            rotate: [0, 360],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+        </div>
       </div>
-    </div>
 
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
-      className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 text-center"
-    >
-      <h1 className="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-        Waiting for next question...
-      </h1>
-      <p className="text-xl text-white/70 mb-8">
-        Get ready, {player.name}!
-      </p>
-      <Loader2 className="w-12 h-12 animate-spin mx-auto text-indigo-400" />
-    </motion.div>
-  </div>
-);
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 text-center"
+      >
+        <h1 className="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+          Waiting for next question...
+        </h1>
+        <p className="text-xl text-white/70 mb-8">
+          Get ready, {player.name}!
+        </p>
+        <Loader2 className="w-12 h-12 animate-spin mx-auto text-indigo-400 mb-8" />
+
+        {/* Add Help Button */}
+        <motion.button
+          onClick={() => $showHelp.set(true)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="text-white/80 hover:text-white transition duration-300 flex items-center justify-center mx-auto"
+        >
+          <HelpCircle className="mr-2" size={20} />
+          How to Play
+        </motion.button>
+      </motion.div>
+
+      <AnimatePresence>
+        {showHelp && <HelpModal $showHelp={$showHelp} />}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 const GameFinishedDisplay = ({ player }: { player: Player }) => (
   <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
@@ -332,6 +375,8 @@ const NameEntryForm = () => {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const send = GameContext.useSend();
+  const [$showHelp] = useState(() => atom<boolean>(false));
+  const showHelp = useStore($showHelp);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -436,6 +481,20 @@ const NameEntryForm = () => {
             )}
           </motion.button>
         </form>
+
+        <motion.button
+          onClick={() => $showHelp.set(true)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          className="text-white/80 hover:text-white transition duration-300 flex items-center justify-center mx-auto mt-4"
+        >
+          <HelpCircle className="mr-2" size={20} />
+          How to Play
+        </motion.button>
+
+        <AnimatePresence>
+          {showHelp && <HelpModal $showHelp={$showHelp} />}
+        </AnimatePresence>
       </motion.div>
     </div>
   );
@@ -460,6 +519,16 @@ const QuestionResultsDisplay = ({
   const question = latestResult ? questions[latestResult.questionId] : null;
   
   if (!latestResult || !question) return null;
+
+  // Sort by points first, then by time for equal points
+  const sortedScores = [...latestResult.scores].sort((a, b) => {
+    // First sort by points (descending)
+    if (b.points !== a.points) {
+      return b.points - a.points;
+    }
+    // Then by time (ascending) for equal points
+    return a.timeTaken - b.timeTaken;
+  });
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-8 relative">
@@ -499,10 +568,10 @@ const QuestionResultsDisplay = ({
           </div>
 
           {/* Results List */}
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50">
-            <h2 className="text-2xl font-bold text-indigo-300 mb-6">Results</h2>
-            <div className="space-y-4">
-              {latestResult.scores.map((score) => {
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
+            <h2 className="text-2xl font-bold text-indigo-300 mb-4">Results</h2>
+            <div className="space-y-2">
+              {sortedScores.map((score) => {
                 const answer = latestResult.answers.find(a => a.playerId === score.playerId);
                 if (!answer) return null;
 
@@ -515,28 +584,33 @@ const QuestionResultsDisplay = ({
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     data-testid={`player-result-${score.playerId}`}
-                    className={`bg-gray-900/50 rounded-xl p-4 flex justify-between items-center border ${
-                      isCurrentPlayer ? 'border-indigo-500/50 bg-indigo-500/10' : 'border-gray-700/50'
+                    className={`bg-gray-900/50 rounded-xl p-4 grid grid-cols-[48px_1fr_96px] items-center ${
+                      isCurrentPlayer ? 'bg-indigo-500/10' : ''
                     }`}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="text-2xl font-bold text-indigo-400">
-                        #{score.position}
+                    <div className="text-xl font-bold text-indigo-400">
+                      #{score.position}
+                    </div>
+                    
+                    <div className="flex flex-col items-center min-w-0">
+                      <div className="text-lg font-medium text-white/90">
+                        {score.playerName}
                       </div>
-                      <div>
-                        <div className="text-xl font-medium text-white/90">
-                          {score.playerName}
-                        </div>
-                        <div className="text-sm text-white/60 flex items-center gap-2">
-                          <span className={`font-medium ${isExact ? 'text-green-400' : 'text-white/90'}`}>
-                            {answer.value}
-                          </span>
-                          • {score.timeTaken.toFixed(1)}s
-                        </div>
+                      <div className="flex items-center gap-2 text-sm text-white/60">
+                        <span className={isExact ? 'text-green-400' : 'text-white/90'}>
+                          {answer.value}
+                        </span>
+                        <span className="text-white/40">•</span>
+                        <span>{score.timeTaken.toFixed(1)}s</span>
                       </div>
                     </div>
-                    <div className="text-2xl font-bold text-indigo-400">
-                      {score.points} points
+
+                    <div className="text-right">
+                      {score.points > 0 && (
+                        <div className="text-xl font-bold text-indigo-400">
+                          {score.points} <span className="text-indigo-400/70">pts</span>
+                        </div>
+                      )}
                     </div>
                   </motion.div>
                 );
