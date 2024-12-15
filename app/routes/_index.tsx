@@ -1,20 +1,13 @@
-import { catchError } from "@jonmumm/utils/catchError";
 import { useStore } from "@nanostores/react";
 
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/cloudflare";
-import {
-  json,
-  useLoaderData,
-  useNavigate,
-  useSearchParams,
-} from "@remix-run/react";
+import { json, useLoaderData } from "@remix-run/react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Dice1, HelpCircle, Plus } from "lucide-react";
 import { atom } from "nanostores";
-import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
-import { SessionContext } from "~/session.context";
 import { getDeviceType } from "~/utils/deviceType";
+import { Drawer } from "vaul";
 
 export const meta: MetaFunction = () => {
   return [
@@ -48,12 +41,7 @@ export default function Index() {
   const { gameId } = useLoaderData<LoaderData>();
   const [$showHelp] = useState(() => atom<boolean>(false));
 
-  return (
-    <HomePageContent
-      newGameId={gameId}
-      $showHelp={$showHelp}
-    />
-  );
+  return <HomePageContent newGameId={gameId} $showHelp={$showHelp} />;
 }
 
 type HomePageContentProps = {
@@ -61,70 +49,15 @@ type HomePageContentProps = {
   $showHelp: ReturnType<typeof atom<boolean>>;
 };
 
-function HomePageContent({
-  newGameId,
-  $showHelp,
-}: HomePageContentProps) {
+function HomePageContent({ newGameId, $showHelp }: HomePageContentProps) {
   const { deviceType, host } = useLoaderData<LoaderData>();
   const isMobile = deviceType === "mobile";
   const showHelp = useStore($showHelp);
 
-  const HelpModal = () => (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
-      onClick={() => $showHelp.set(false)}
-    >
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        exit={{ scale: 0.9, opacity: 0 }}
-        className="bg-white/10 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full mx-4 border border-white/20"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 className="text-2xl font-bold mb-4 text-white">How to Play</h2>
-        <div className="space-y-4 text-white/80">
-          <div>
-            <h3 className="font-semibold mb-2">Joining a Game</h3>
-            <ol className="list-decimal list-inside space-y-1">
-              <li>Get a game code from the host</li>
-              <li>Enter the code and join the game</li>
-              <li>Wait for the host to start</li>
-            </ol>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">Hosting a Game</h3>
-            <ol className="list-decimal list-inside space-y-1">
-              <li>Click &quot;Create New Game&quot;</li>
-              <li>Share the game code with players</li>
-              <li>Start when everyone has joined</li>
-            </ol>
-          </div>
-          <div>
-            <h3 className="font-semibold mb-2">During the Game</h3>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Be first to buzz in with the correct answer</li>
-              <li>Score points for correct answers</li>
-              <li>The player with the most points wins!</li>
-            </ul>
-          </div>
-        </div>
-        <button
-          onClick={() => $showHelp.set(false)}
-          className="mt-6 w-full bg-white/20 hover:bg-white/30 text-white font-bold py-2 px-4 rounded-xl transition duration-300"
-        >
-          Got it!
-        </button>
-      </motion.div>
-    </motion.div>
-  );
-
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Animation */}
-      <div className="absolute inset-0 overflow-hidden">
+      {/* Background Animation - lower z-index */}
+      <div className="absolute inset-0 overflow-hidden z-0">
         <div className="absolute inset-0 opacity-20">
           <motion.div
             className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500"
@@ -141,6 +74,7 @@ function HomePageContent({
         </div>
       </div>
 
+      {/* Main Content - middle z-index */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -153,62 +87,21 @@ function HomePageContent({
             Trivia Jam
           </h1>
         </div>
-
-        {isMobile ? (
-          // Mobile view - show only create game option
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20">
-            <h2 className="text-2xl font-semibold text-indigo-300 mb-4">
-              Start a New Game
-            </h2>
-            <a href={`/games/${newGameId}`}>
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center"
-              >
-                <Plus className="mr-2" size={20} />
-                Create New Game
-              </motion.button>
-            </a>
-          </div>
-        ) : (
-          // Desktop view - show TV mode message
-          <div className="bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20 text-center">
-            <h2 className="text-2xl font-semibold text-indigo-300 mb-4">
-              TV/Display Mode
-            </h2>
-            <p className="text-white/80 mb-4">
-              This device will act as the game display. To play or host a game,
-              please use a mobile device.
-            </p>
-
-            <div className="flex flex-col items-center justify-center space-y-6 p-4">
-              <div className="bg-white p-4 rounded-xl">
-                <QRCodeSVG
-                  value={`https://${host}`}
-                  size={200}
-                  level="H"
-                  includeMargin
-                />
-              </div>
-              <p className="text-white/80 text-sm">
-                Scan this QR code to open Trivia Jam on your phone
-              </p>
-              <div className="flex items-center justify-center space-x-2 text-white/60 text-sm">
-                <span>or visit</span>
-                <a
-                  href={`https://${host}`}
-                  className="text-indigo-400 hover:text-indigo-300 underline"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  triviajam.tv
-                </a>
-              </div>
-            </div>
-          </div>
-        )}
-
+        <div className="bg-white/10 backdrop-blur-sm rounded-2xl shadow-lg p-6 border border-white/20">
+          <h2 className="text-2xl font-semibold text-indigo-300 mb-4">
+            Start a New Game
+          </h2>
+          <a href={`/games/${newGameId}`}>
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center"
+            >
+              <Plus className="mr-2" size={20} />
+              Create New Game
+            </motion.button>
+          </a>
+        </div>
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -227,7 +120,63 @@ function HomePageContent({
         </motion.div>
       </motion.div>
 
-      <AnimatePresence>{showHelp && <HelpModal />}</AnimatePresence>
+      {/* Help Modal - highest z-index */}
+      <Drawer.Root open={showHelp} onOpenChange={(open) => $showHelp.set(open)}>
+        <Drawer.Portal>
+          <Drawer.Overlay className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]" />
+          <Drawer.Content className="bg-gradient-to-br from-indigo-900/90 to-purple-900/90 flex flex-col fixed bottom-0 left-0 right-0 max-h-[85vh] rounded-t-[10px] border-t border-white/20 z-[100]">
+            <div className="p-4 pb-6 flex-1 overflow-y-auto">
+              {/* Drawer handle */}
+              <div className="mx-auto w-12 h-1.5 flex-shrink-0 rounded-full bg-white/20 mb-4" />
+
+              <div className="max-w-xl mx-auto px-2">
+                <h2 className="text-2xl md:text-3xl font-bold mb-4 text-white bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+                  How to Play
+                </h2>
+
+                <div className="space-y-4 text-white/90">
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h3 className="text-lg md:text-xl font-semibold mb-2 text-indigo-300">Game Basics</h3>
+                    <ul className="space-y-2 list-disc list-inside text-sm md:text-base">
+                      <li>Answer numerical trivia questions as quickly as possible</li>
+                      <li>All answers must be numbers (years, quantities, measurements, etc.)</li>
+                      <li>You have 30 seconds to submit your answer for each question</li>
+                      <li>Points are awarded based on accuracy and speed</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h3 className="text-lg md:text-xl font-semibold mb-2 text-indigo-300">Scoring</h3>
+                    <ul className="space-y-2 list-disc list-inside text-sm md:text-base">
+                      <li>Top 30% of players can earn points each round</li>
+                      <li>Exact answers are prioritized over close answers</li>
+                      <li>First place: 3 points</li>
+                      <li>Second place: 2 points</li>
+                      <li>Third place: 1 point</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-white/10 rounded-xl p-4">
+                    <h3 className="text-lg md:text-xl font-semibold mb-2 text-indigo-300">Quick Tips</h3>
+                    <ul className="space-y-2 list-disc list-inside text-sm md:text-base">
+                      <li>Balance speed with accuracy - both matter!</li>
+                      <li>Watch the timer - answers lock when time runs out</li>
+                      <li>Keep an eye on the leaderboard between questions</li>
+                    </ul>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => $showHelp.set(false)}
+                  className="mt-6 w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 px-4 rounded-xl transition duration-300 shadow-lg"
+                >
+                  Let's Play!
+                </button>
+              </div>
+            </div>
+          </Drawer.Content>
+        </Drawer.Portal>
+      </Drawer.Root>
     </div>
   );
 }

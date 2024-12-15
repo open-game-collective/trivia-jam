@@ -6,25 +6,10 @@ import type {
 } from "actor-kit";
 import { z } from "zod";
 import { Env } from "./env";
-import { GameClientEventSchema, GameInputPropsSchema } from "./game.schemas";
+import { GameClientEventSchema, GameInputPropsSchema, GameServiceEventSchema } from "./game.schemas";
 
 export type GameInputProps = z.infer<typeof GameInputPropsSchema>;
 export type GameInput = WithActorKitInput<GameInputProps>;
-
-// Event Schemas
-
-export const GameServiceEventSchema = z.discriminatedUnion("type", [
-  z.object({
-    type: z.literal("SYNC_PLAYERS"),
-    players: z.array(
-      z.object({
-        id: z.string(),
-        name: z.string(),
-        score: z.number(),
-      })
-    ),
-  }),
-]);
 
 // Event Types
 export type GameClientEvent = z.infer<typeof GameClientEventSchema>;
@@ -37,6 +22,33 @@ export type GameEvent = (
   BaseActorKitEvent<Env>;
 
 // Context Types
+export type Answer = {
+  playerId: string;
+  playerName: string;
+  value: number;
+  timestamp: number;
+};
+
+export type Question = {
+  id: string;
+  text: string;
+  correctAnswer: number;
+  requireExactAnswer: boolean;
+};
+
+export type QuestionResult = {
+  questionId: string;
+  questionNumber: number;
+  answers: Answer[];
+  scores: Array<{
+    playerId: string;
+    playerName: string;
+    points: number;
+    position: number;
+    timeTaken: number;
+  }>;
+};
+
 export type GamePublicContext = {
   id: string;
   gameCode?: string;
@@ -48,25 +60,19 @@ export type GamePublicContext = {
     score: number;
   }>;
   currentQuestion: {
-    text: string;
+    questionId: string;
+    startTime: number;
+    answers: Answer[];
   } | null;
-  buzzerQueue: string[]; // Array of player IDs in buzz order
   gameStatus: "lobby" | "active" | "finished";
   winner: string | null;
   settings: {
     maxPlayers: number;
     questionCount: number;
+    answerTimeWindow: number;
   };
-  lastAnswerResult?: {
-    playerId: string;
-    playerName: string;
-    correct: boolean;
-  } | null;
-  previousAnswers?: Array<{
-    playerId: string;
-    playerName: string;
-    correct: boolean;
-  }>;
+  questions: Record<string, Question>;
+  questionResults: QuestionResult[];
   questionNumber: number;
 };
 

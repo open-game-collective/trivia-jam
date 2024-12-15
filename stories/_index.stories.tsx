@@ -71,30 +71,7 @@ const meta: Meta<typeof Index> = {
 
 export default meta;
 
-/**
- * Story showing the desktop/TV display mode with QR code
- */
-export const DesktopView: Story = {
-  parameters: {
-    remix: {
-      initialPath: "/",
-      loaderData: { gameId: TEST_GAME_ID, deviceType: "desktop", host: "dev.triviajam.tv" },
-      userId: "user-123",
-      sessionId: "session-123",
-      pageSessionId: "page-session-123",
-    },
-    actorKit: {
-      session: {
-        "session-123": defaultSessionSnapshot,
-      },
-    },
-  },
-};
-
-/**
- * Story showing the mobile view with game controls
- */
-export const MobileView: Story = {
+export const HomepageView: Story = {
   parameters: {
     remix: {
       initialPath: "/",

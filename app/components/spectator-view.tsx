@@ -3,6 +3,7 @@ import { Bell, Crown, Trophy, Users, X } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
 import { GameContext } from "~/game.context";
+import type { Answer, GamePublicContext } from "~/game.types";
 
 const SOUND_EFFECTS = {
   // Classic game show buzzer sound
@@ -79,18 +80,23 @@ const useSoundEffects = () => {
 
 export const SpectatorView = ({ host }: { host: string }) => {
   const gameState = GameContext.useSelector((state) => state);
-  const { gameStatus, currentQuestion, buzzerQueue, players } =
-    gameState.public;
+  const { gameStatus, currentQuestion, players, questionResults, questions } = gameState.public;
   const playSound = useSoundEffects();
-  const prevGameStatusRef = useRef(gameStatus);
+  const prevQuestionRef = useRef<typeof currentQuestion>(null);
 
-  // Add effect to play game over sound
+  // Update sound effect logic
   useEffect(() => {
-    if (prevGameStatusRef.current === "active" && gameStatus === "finished") {
-      playSound("GAME_OVER");
+    const isSkip = prevQuestionRef.current && !currentQuestion;
+    const isNewQuestion = !prevQuestionRef.current && currentQuestion;
+    
+    if (isSkip) {
+      playSound("SKIP");
+    } else if (isNewQuestion) {
+      playSound("QUESTION");
     }
-    prevGameStatusRef.current = gameStatus;
-  }, [gameStatus, playSound]);
+    
+    prevQuestionRef.current = currentQuestion;
+  }, [currentQuestion, playSound]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -99,14 +105,23 @@ export const SpectatorView = ({ host }: { host: string }) => {
           <LobbyDisplay players={players} host={host} />
         )}
 
-        {gameStatus === "active" && (
+        {gameStatus === "active" && currentQuestion && (
           <GameplayDisplay
             currentQuestion={currentQuestion}
-            buzzerQueue={buzzerQueue}
             players={players}
-            lastAnswerResult={gameState.public.lastAnswerResult}
-            previousAnswers={gameState.public.previousAnswers}
           />
+        )}
+
+        {gameStatus === "active" && !currentQuestion && questionResults.length > 0 && (
+          <QuestionResultsDisplay
+            players={players}
+            questionResults={questionResults}
+            questions={questions}
+          />
+        )}
+
+        {gameStatus === "active" && !currentQuestion && questionResults.length === 0 && (
+          <WaitingForQuestionDisplay players={players} />
         )}
 
         {gameStatus === "finished" && <GameFinishedDisplay players={players} />}
@@ -324,299 +339,133 @@ const CelebrationDisplay = ({
 
 const GameplayDisplay = ({
   currentQuestion,
-  buzzerQueue,
   players,
-  lastAnswerResult,
-  previousAnswers = [],
 }: {
-  currentQuestion: { text: string } | null;
-  buzzerQueue: string[];
+  currentQuestion: { questionId: string; startTime: number; answers: Answer[] } | null;
   players: Array<{ id: string; name: string; score: number }>;
-  lastAnswerResult?: {
-    playerId: string;
-    playerName: string;
-    correct: boolean;
-  } | null;
-  previousAnswers?: Array<{
-    playerId: string;
-    playerName: string;
-    correct: boolean;
-  }>;
 }) => {
-  // Move all hooks to the top
-  const playSound = useSoundEffects();
-  const prevBuzzerQueueRef = useRef<string[]>([]);
-  const prevLastAnswerResultRef = useRef(lastAnswerResult);
-  const prevQuestionRef = useRef(currentQuestion);
+  const gameState = GameContext.useSelector((state) => state.public);
+  
+  // Get question text from questions collection
+  const questionText = currentQuestion 
+    ? gameState.questions[currentQuestion.questionId]?.text 
+    : null;
 
-  // Create a copy before sorting
-  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  // Calculate remaining time
+  const remainingTime = currentQuestion 
+    ? Math.max(0, Math.ceil(
+        (currentQuestion.startTime + (gameState.settings.answerTimeWindow * 1000) - Date.now()) / 1000
+      ))
+    : 0;
 
-  // Play sound when new player buzzes in
-  useEffect(() => {
-    if (buzzerQueue.length > prevBuzzerQueueRef.current.length) {
-      playSound("BUZZ");
-    }
-    prevBuzzerQueueRef.current = buzzerQueue;
-  }, [buzzerQueue, playSound]);
+  // Create a map of all players with their answers (or null if not answered)
+  const playerAnswers = players.reduce<Record<string, Answer | null>>((acc, player) => {
+    acc[player.id] = currentQuestion?.answers.find(a => a.playerId === player.id) || null;
+    return acc;
+  }, {});
 
-  // Update these effects in GameplayDisplay component
-  useEffect(() => {
-    // Skip if no lastAnswerResult
-    if (!lastAnswerResult) {
-      prevLastAnswerResultRef.current = null;
-      return;
-    }
-
-    // Skip if same result
-    if (prevLastAnswerResultRef.current?.playerId === lastAnswerResult.playerId &&
-        prevLastAnswerResultRef.current?.correct === lastAnswerResult.correct) {
-      return;
-    }
-
-    // Play appropriate sound based on the new result
-    if (lastAnswerResult.correct) {
-      playSound("CORRECT");
-    } else {
-      playSound("INCORRECT");
-    }
-
-    // Update ref after playing sound
-    prevLastAnswerResultRef.current = lastAnswerResult;
-  }, [lastAnswerResult, playSound]);
-
-  useEffect(() => {
-    const isSkip = prevQuestionRef.current && !currentQuestion;
-    const isNewQuestion = !prevQuestionRef.current && currentQuestion;
-    
-    if (isSkip) {
-      // Only play skip sound if there's no answer result or if the last answer was incorrect
-      if (!lastAnswerResult || !lastAnswerResult.correct) {
-        playSound("SKIP");
-      }
-    } else if (isNewQuestion) {
-      playSound("QUESTION");
-    }
-    
-    prevQuestionRef.current = currentQuestion;
-  }, [currentQuestion, lastAnswerResult, playSound]);
-
-  // Calculate previous rank if needed
-  const previousRank = lastAnswerResult?.correct
-    ? [...players]
-        .map((p) => ({
-          ...p,
-          score: p.id === lastAnswerResult.playerId ? p.score - 1 : p.score,
-        }))
-        .sort((a, b) => b.score - a.score)
-        .findIndex((p) => p.id === lastAnswerResult.playerId) + 1
-    : undefined;
-
-  if (lastAnswerResult?.correct) {
-    return (
-      <div className="min-h-screen flex">
-        {/* Left Side - Leaderboard */}
-        <div className="w-[400px] bg-gray-800/30 backdrop-blur-sm p-8 border-r border-gray-700/50">
-          <div className="sticky top-8">
-            <div className="flex items-center gap-2 mb-6">
-              <Crown className="w-7 h-7 text-indigo-400" />
-              <h2 className="text-3xl font-bold text-indigo-400">
-                Leaderboard
-              </h2>
-            </div>
-            <div className="space-y-2">
-              {sortedPlayers.map((player, index) => (
-                <motion.div
-                  key={player.id}
-                  className={`flex items-center justify-between p-4 rounded-xl border ${
-                    player.id === lastAnswerResult.playerId
-                      ? "bg-green-500/20 border-green-500/30"
-                      : index === 0
-                      ? "bg-yellow-500/10 border-yellow-500/30"
-                      : "bg-gray-800/30 border-gray-700/30"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-indigo-400">
-                      #{index + 1}
-                    </span>
-                    <span className="text-lg">{player.name}</span>
-                  </div>
-                  <span className="text-2xl font-bold text-indigo-400">
-                    {player.score}
-                  </span>
-                </motion.div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Right Side - Celebration */}
-        <CelebrationDisplay
-          winner={{
-            playerId: lastAnswerResult.playerId,
-            playerName: lastAnswerResult.playerName,
-          }}
-          players={players}
-          previousRank={previousRank}
-        />
-      </div>
-    );
-  }
+  // Sort players by answer time (unanswered at the bottom)
+  const sortedPlayers = [...players].sort((a, b) => {
+    const aAnswer = playerAnswers[a.id];
+    const bAnswer = playerAnswers[b.id];
+    if (!aAnswer && !bAnswer) return 0;
+    if (!aAnswer) return 1;
+    if (!bAnswer) return -1;
+    return aAnswer.timestamp - bAnswer.timestamp;
+  });
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Side - Leaderboard */}
-      <div className="w-[400px] bg-gray-800/30 backdrop-blur-sm p-8 border-r border-gray-700/50">
-        <div className="sticky top-8">
-          <div className="flex items-center gap-2 mb-6">
-            <Crown className="w-7 h-7 text-indigo-400" />
-            <h2 className="text-3xl font-bold text-indigo-400">Leaderboard</h2>
-          </div>
-          <div className="space-y-2">
-            {sortedPlayers.map((player, index) => (
-              <motion.div
-                key={player.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`flex items-center justify-between p-4 rounded-xl border ${
-                  index === 0
-                    ? "bg-yellow-500/10 border-yellow-500/30"
-                    : "bg-gray-800/30 border-gray-700/30"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold text-indigo-400">
-                    #{index + 1}
-                  </span>
-                  <span className="text-lg">{player.name}</span>
-                </div>
-                <span className="text-2xl font-bold text-indigo-400">
-                  {player.score}
-                </span>
-              </motion.div>
-            ))}
-          </div>
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
         </div>
       </div>
 
-      {/* Right Side - Question & Buzzer Queue */}
-      <div className="flex-1 flex flex-col p-8">
-        {/* Question Display */}
-        <div className="flex-1 flex flex-col items-center justify-center mb-8">
-          {currentQuestion ? (
-            <>
-              <h1
-                className="text-6xl font-bold text-center mb-12 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400"
-                data-testid="current-question"
-              >
-                {currentQuestion.text}
-              </h1>
-
-              {/* Current Answerer Display */}
-              {buzzerQueue.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-4xl text-center"
-                  data-testid="current-answerer"
-                >
-                  <span className="font-bold text-indigo-400">
-                    {players.find((p) => p.id === buzzerQueue[0])?.name}
-                  </span>{" "}
-                  <span className="text-white/80">is answering...</span>
-                </motion.div>
-              )}
-            </>
-          ) : (
-            <div
-              className="text-3xl text-center text-indigo-300/60"
-              data-testid="waiting-message"
+      {/* Main Content */}
+      <div className="relative z-10 w-full max-w-4xl">
+        {currentQuestion && questionText && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center"
+          >
+            {/* Timer Display */}
+            <motion.div
+              className="text-7xl font-bold text-indigo-400 mb-8"
+              data-testid="question-timer"
+              animate={{
+                scale: remainingTime <= 5 ? [1, 1.1, 1] : 1,
+                color: remainingTime <= 5 ? ["#818CF8", "#EF4444", "#818CF8"] : "#818CF8",
+              }}
+              transition={{
+                duration: 1,
+                repeat: remainingTime <= 5 ? Infinity : 0,
+              }}
             >
-              Waiting for question...
-            </div>
-          )}
-        </div>
+              {remainingTime}s
+            </motion.div>
 
-        {/* Previous Incorrect Answers */}
-        {previousAnswers.length > 0 && (
-          <div className="mb-8">
-            <div className="flex items-center gap-2 mb-4">
-              <X className="w-6 h-6 text-red-400" />
-              <h3 className="text-2xl font-bold text-red-400">
-                Previous Incorrect Answers
-              </h3>
-            </div>
-            <div className="space-y-2">
-              <AnimatePresence mode="popLayout">
-                {previousAnswers.map((answer, index) => (
-                  <motion.div
-                    key={`${answer.playerId}-${index}`}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 20 }}
-                    className="bg-red-500/10 border border-red-500/30 rounded-xl p-4"
-                  >
-                    <span
-                      className="font-medium text-red-300"
-                      data-testid={`incorrect-answer-${answer.playerId}`}
-                    >
-                      {answer.playerName}
-                    </span>
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-        )}
+            {/* Question Display */}
+            <h1 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-12">
+              {questionText}
+            </h1>
 
-        {/* Buzzer Queue */}
-        <div
-          className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50"
-          data-testid="buzzer-queue-section"
-        >
-          <div className="flex items-center gap-2 mb-4">
-            <Bell className="w-6 h-6 text-indigo-400" />
-            <h3 className="text-2xl font-bold text-indigo-400">Up Next</h3>
-          </div>
+            {/* Answers Section */}
+            <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50">
+              <h2 className="text-2xl font-bold text-indigo-300 mb-6 flex items-center justify-center gap-3">
+                <Users className="w-6 h-6" />
+                Answers Submitted: {currentQuestion.answers.length} / {players.length}
+              </h2>
 
-          {buzzerQueue.length > 1 ? (
-            <div className="space-y-3">
-              <AnimatePresence mode="popLayout">
-                {buzzerQueue.slice(1).map((playerId, index) => {
-                  const player = players.find((p) => p.id === playerId);
+              <div className="space-y-3">
+                {sortedPlayers.map((player) => {
+                  const answer = playerAnswers[player.id];
+                  const hasAnswered = !!answer;
+
                   return (
                     <motion.div
-                      key={playerId}
-                      data-testid={`queue-player-${playerId}`}
-                      initial={{ opacity: 0, x: -50 }}
+                      key={player.id}
+                      initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      exit={{ opacity: 0, x: 50 }}
-                      transition={{ duration: 0.3 }}
-                      className="flex items-center justify-between p-4 rounded-xl border border-gray-700/50"
+                      data-testid={`player-answer-${player.id}`}
+                      className={`rounded-xl p-4 flex justify-between items-center border ${
+                        hasAnswered 
+                          ? "bg-gray-900/50 border-gray-700/50" 
+                          : "bg-gray-900/20 border-gray-700/20"
+                      }`}
                     >
-                      <div className="flex items-center gap-4">
-                        <span className="text-2xl font-bold text-indigo-400">
-                          #{index + 2}
+                      <span className={`text-xl font-medium ${hasAnswered ? "text-white/90" : "text-white/50"}`}>
+                        {player.name}
+                      </span>
+                      {hasAnswered ? (
+                        <span className="text-xl font-bold text-indigo-400">
+                          {((answer.timestamp - currentQuestion.startTime) / 1000).toFixed(1)}s
                         </span>
-                        <span className="text-xl">{player?.name}</span>
-                      </div>
+                      ) : (
+                        <span className="text-lg text-indigo-400/50">
+                          Waiting...
+                        </span>
+                      )}
                     </motion.div>
                   );
                 })}
-              </AnimatePresence>
+              </div>
             </div>
-          ) : (
-            <div
-              className="flex flex-col items-center justify-center py-8 text-indigo-300/60"
-              data-testid="empty-queue-message"
-            >
-              <Bell className="w-12 h-12 mb-4 opacity-50" />
-              <p className="text-xl">No one else in queue</p>
-            </div>
-          )}
-        </div>
+          </motion.div>
+        )}
       </div>
     </div>
   );
@@ -726,6 +575,187 @@ const GameFinishedDisplay = ({
           ))}
         </div>
       </motion.div>
+    </div>
+  );
+};
+
+const QuestionResultsDisplay = ({
+  players,
+  questionResults,
+  questions,
+}: {
+  players: Array<{ id: string; name: string; score: number }>;
+  questionResults: GamePublicContext['questionResults'];
+  questions: GamePublicContext['questions'];
+}) => {
+  const latestResult = questionResults[questionResults.length - 1];
+  const question = latestResult ? questions[latestResult.questionId] : null;
+
+  if (!latestResult || !question) return null;
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="relative z-10 w-full max-w-4xl">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          {/* Question & Answer */}
+          <div className="mb-12">
+            <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-6">
+              {question.text}
+            </h1>
+            <div className="text-4xl font-bold text-green-400" data-testid="correct-answer">
+              {question.correctAnswer}
+            </div>
+          </div>
+
+          {/* Results */}
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50">
+            <h2 className="text-2xl font-bold text-indigo-300 mb-6">Results</h2>
+            <div className="space-y-4">
+              {latestResult.scores.map((score: { 
+                playerId: string;
+                playerName: string;
+                points: number;
+                position: number;
+                timeTaken: number;
+              }) => (
+                <motion.div
+                  key={score.playerId}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  data-testid={`player-result-${score.playerId}`}
+                  className="bg-gray-900/50 rounded-xl p-4 flex justify-between items-center border border-gray-700/50"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="text-2xl font-bold text-indigo-400">
+                      #{score.position}
+                    </div>
+                    <div>
+                      <div className="text-xl font-medium text-white/90">
+                        {score.playerName}
+                      </div>
+                      <div className="text-sm text-white/60">
+                        {score.timeTaken.toFixed(1)}s
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-2xl font-bold text-indigo-400">
+                    {score.points} points
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  );
+};
+
+const WaitingForQuestionDisplay = ({
+  players,
+}: {
+  players: Array<{ id: string; name: string; score: number }>;
+}) => {
+  const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-8 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="relative z-10 w-full max-w-4xl">
+        <motion.div
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          {/* Waiting Message */}
+          <div className="mb-12">
+            <h1 
+              className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-6"
+              data-testid="waiting-for-question"
+            >
+              Waiting for Question...
+            </h1>
+            <motion.div
+              animate={{ scale: [1, 1.1, 1] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-4xl text-indigo-400/60"
+            >
+              ⏳
+            </motion.div>
+          </div>
+
+          {/* Current Standings */}
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50">
+            <h2 className="text-2xl font-bold text-indigo-300 mb-6">Current Standings</h2>
+            <div className="space-y-3">
+              {sortedPlayers.map((player, index) => (
+                <motion.div
+                  key={player.id}
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`bg-gray-900/50 rounded-xl p-4 flex justify-between items-center border border-gray-700/50 ${
+                    index === 0 ? "bg-yellow-500/10 border-yellow-500/30" : ""
+                  }`}
+                >
+                  <div className="flex items-center gap-4">
+                    <span className="text-2xl font-bold text-indigo-400">
+                      #{index + 1}
+                    </span>
+                    <span className="text-xl font-medium text-white/90">
+                      {player.name}
+                    </span>
+                  </div>
+                  <span className="text-2xl font-bold text-indigo-400">
+                    {player.score}
+                  </span>
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 };

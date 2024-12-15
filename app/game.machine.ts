@@ -1,7 +1,107 @@
 import { ActorKitStateMachine } from "actor-kit";
 import { produce } from "immer";
-import { and, assign, DoneActorEvent, fromPromise, setup } from "xstate";
-import type { GameEvent, GameInput, GameServerContext, GamePublicContext } from "./game.types";
+import { assign, DoneActorEvent, fromPromise, setup } from "xstate";
+import type { GameEvent, GameInput, GameServerContext, Answer, QuestionResult, Question } from "./game.types";
+
+// Helper function to calculate scores based on answers
+function calculateScores(
+  answers: Answer[],
+  question: Question,
+  startTime: number
+): QuestionResult["scores"] {
+  // Filter out invalid answers
+  const validAnswers = answers.filter(answer => 
+    !isNaN(answer.value) && 
+    isFinite(answer.value)
+  );
+
+  // Check for exact matches first
+  const exactMatches = validAnswers.filter(answer => 
+    answer.value === question.correctAnswer
+  );
+
+  // If we have exact matches or require exact answers, only score those
+  const scoringAnswers = question.requireExactAnswer || exactMatches.length > 0
+    ? exactMatches
+    : validAnswers;
+
+  // Calculate metrics for scoring answers
+  const scoredAnswers = scoringAnswers.map(answer => ({
+    ...answer,
+    difference: Math.abs(answer.value - question.correctAnswer),
+    timeTaken: (answer.timestamp - startTime) / 1000
+  }));
+
+  // Sort by difference first (for closest answer mode), then by time
+  scoredAnswers.sort((a, b) => {
+    if (a.difference !== b.difference) {
+      return a.difference - b.difference;
+    }
+    return a.timeTaken - b.timeTaken;
+  });
+
+  // For closest answer mode with no exact matches, only the closest answer gets points
+  const scoringPositions = question.requireExactAnswer || exactMatches.length > 0
+    ? Math.max(3, Math.floor(answers.length * 0.3))  // Normal scoring for exact matches
+    : 1;  // Only closest answer gets points when no exacts
+
+  // Group answers by position (handling ties)
+  const positions = scoredAnswers.reduce<Array<typeof scoredAnswers>>((acc, answer) => {
+    const lastGroup = acc[acc.length - 1];
+    
+    if (!lastGroup) {
+      acc.push([answer]);
+      return acc;
+    }
+
+    const lastAnswer = lastGroup[0];
+    if (
+      lastAnswer.difference === answer.difference &&
+      Math.abs(lastAnswer.timeTaken - answer.timeTaken) < 0.1 // Tie if within 100ms
+    ) {
+      lastGroup.push(answer);
+    } else {
+      acc.push([answer]);
+    }
+
+    return acc;
+  }, []);
+
+  // Calculate points for each position group
+  const pointsMap = new Map<string, number>();
+  let currentPosition = 1;
+
+  positions.forEach(group => {
+    if (currentPosition > scoringPositions) {
+      group.forEach(answer => pointsMap.set(answer.playerId, 0));
+    } else {
+      // Average points for tied positions
+      const points = group.map((_, i) => 
+        Math.max(0, scoringPositions - (currentPosition + i) + 1)
+      );
+      const avgPoints = points.reduce((a, b) => a + b, 0) / points.length;
+      
+      group.forEach(answer => pointsMap.set(answer.playerId, avgPoints));
+    }
+    currentPosition += group.length;
+  });
+
+  // Create final scores array including all players
+  return answers.map(answer => {
+    const scoredAnswer = scoredAnswers.find(sa => sa.playerId === answer.playerId);
+    const position = scoredAnswer 
+      ? positions.findIndex(group => group.some(a => a.playerId === answer.playerId)) + 1
+      : positions.length + 1;
+
+    return {
+      playerId: answer.playerId,
+      playerName: answer.playerName,
+      points: pointsMap.get(answer.playerId) || 0,
+      position,
+      timeTaken: (answer.timestamp - startTime) / 1000
+    };
+  });
+}
 
 export const gameMachine = setup({
   types: {} as {
@@ -11,10 +111,8 @@ export const gameMachine = setup({
   },
   guards: {
     isHost: ({ context, event }) => event.caller.id === context.public.hostId,
-    canBuzzIn: ({ context }) => !!context.public.currentQuestion,
-    hasNotBuzzedYet: ({ context, event }) => !context.public.buzzerQueue.includes(event.caller.id),
-    hasReachedQuestionLimit: ({ context }, { questionNumber }: { questionNumber: number }) => 
-      questionNumber > context.public.settings.questionCount,
+    hasReachedQuestionLimit: ({ context }) => 
+      context.public.questionNumber >= context.public.settings.questionCount,
   },
   actors: {
     generateGameCode: fromPromise(async () => {
@@ -25,111 +123,203 @@ export const gameMachine = setup({
       }
       return code;
     }),
+    answerTimer: fromPromise(async ({ input }: { input: { timeWindow: number } }) => {
+      const { timeWindow } = input;
+      await new Promise(resolve => setTimeout(resolve, timeWindow * 1000));
+      return true;
+    }),
   },
   actions: {
-    updateGameStatus: assign(({ context }, { status }: { status: "lobby" | "active" | "finished" }) => ({
-      public: produce(context.public, draft => {
-        draft.gameStatus = status;
+    updateGameStatus: assign(
+      (
+        { context },
+        { status }: { status: "lobby" | "active" | "finished" }
+      ) => ({
+        public: produce(context.public, (draft) => {
+          draft.gameStatus = status;
+        }),
       })
-    })),
-    setQuestionNumber: assign(({ context }, { number }: { number: number }) => ({
-      public: produce(context.public, draft => {
-        draft.questionNumber = number;
+    ),
+    setQuestionNumber: assign(
+      ({ context }, { number }: { number: number }) => ({
+        public: produce(context.public, (draft) => {
+          draft.questionNumber = number;
+        }),
       })
-    })),
-    addPlayerToGame: assign(({ context }, { name, id }: { name: string; id: string }) => ({
-      public: produce(context.public, draft => {
-        draft.players.push({ id, name, score: 0 });
+    ),
+    addPlayerToGame: assign(
+      ({ context }, { name, id }: { name: string; id: string }) => ({
+        public: produce(context.public, (draft) => {
+          draft.players.push({ id, name, score: 0 });
+        }),
       })
-    })),
-    setQuestion: assign(({ context }, { question }: { question: string }) => ({
-      public: produce(context.public, draft => {
-        draft.currentQuestion = {
-          text: question,
-        };
-        draft.buzzerQueue = [];
-        draft.lastAnswerResult = null;
-        draft.previousAnswers = [];
-      })
-    })),
-    addToBuzzerQueue: assign(({ context, event }: { context: GameServerContext; event: GameEvent }) => ({
-      public: produce(context.public, draft => {
-        draft.buzzerQueue.push(event.caller.id);
-      })
-    })),
-    validateAnswer: assign(({ context }, { playerId, correct }: { playerId: string; correct: boolean }) => ({
-      public: produce(context.public, draft => {
-        const player = draft.players.find(p => p.id === playerId);
-        if (player) {
-          if (correct) {
-            player.score += 1;
-            draft.questionNumber += 1;
-            draft.currentQuestion = null;
-            draft.buzzerQueue = [];
-          } else {
-            draft.buzzerQueue = draft.buzzerQueue.slice(1);
-            draft.previousAnswers = draft.previousAnswers || [];
-            draft.previousAnswers.push({
-              playerId: player.id,
-              playerName: player.name,
-              correct: false,
-            });
-          }
-
-          draft.lastAnswerResult = {
-            playerId: player.id,
-            playerName: player.name,
-            correct,
+    ),
+    setQuestion: assign(
+      (
+        { context },
+        { question }: { question: { text: string; correctAnswer: number; requireExactAnswer: boolean } }
+      ) => ({
+        public: produce(context.public, (draft) => {
+          draft.currentQuestion = {
+            questionId: crypto.randomUUID(),
+            startTime: Date.now(),
+            answers: [],
           };
-
-          if (draft.questionNumber > draft.settings.questionCount) {
-            draft.gameStatus = "finished";
-            draft.winner = draft.players.reduce((a, b) => 
-              a.score > b.score ? a : b
-            ).id;
-          }
-        }
+          draft.questions[draft.currentQuestion.questionId] = {
+            id: draft.currentQuestion.questionId,
+            text: question.text,
+            correctAnswer: question.correctAnswer,
+            requireExactAnswer: question.requireExactAnswer,
+          };
+        }),
       })
-    })),
+    ),
+    addToBuzzerQueue: assign(
+      ({
+        context,
+        event,
+      }: {
+        context: GameServerContext;
+        event: GameEvent;
+      }) => ({
+        public: produce(context.public, (draft) => {
+          // draft.buzzerQueue.push(event.caller.id);
+        }),
+      })
+    ),
+    validateAnswer: assign(
+      (
+        { context },
+        { playerId, correct }: { playerId: string; correct: boolean }
+      ) => ({
+        public: produce(context.public, (draft) => {
+          const player = draft.players.find((p) => p.id === playerId);
+          if (player) {
+            if (correct) {
+              player.score += 1;
+              draft.questionNumber += 1;
+              draft.currentQuestion = null;
+              // draft.buzzerQueue = [];
+            } else {
+              // draft.buzzerQueue = draft.buzzerQueue.slice(1);
+              // draft.previousAnswers = draft.previousAnswers || [];
+              // draft.previousAnswers.push({
+              //   playerId: player.id,
+              //   playerName: player.name,
+              //   correct: false,
+              // });
+            }
+
+            // draft.lastAnswerResult = {
+            //   playerId: player.id,
+            //   playerName: player.name,
+            //   correct,
+            // };
+
+            if (draft.questionNumber > draft.settings.questionCount) {
+              draft.gameStatus = "finished";
+              draft.winner = draft.players.reduce((a, b) =>
+                a.score > b.score ? a : b
+              ).id;
+            }
+          }
+        }),
+      })
+    ),
     setWinner: assign(({ context }) => ({
-      public: produce(context.public, draft => {
-        draft.winner = draft.players.reduce((a, b) => 
+      public: produce(context.public, (draft) => {
+        draft.winner = draft.players.reduce((a, b) =>
           a.score > b.score ? a : b
         ).id;
-      })
+      }),
     })),
     setGameCode: assign(({ context }, { code }: { code: string }) => ({
-      public: produce(context.public, draft => {
+      public: produce(context.public, (draft) => {
         draft.gameCode = code;
-      })
+      }),
     })),
-    assignGeneratedGameCode: assign(({ context }, { gameCode }: { gameCode: string }) => ({
-      public: produce(context.public, draft => {
-        draft.gameCode = gameCode;
+    assignGeneratedGameCode: assign(
+      ({ context }, { gameCode }: { gameCode: string }) => ({
+        public: produce(context.public, (draft) => {
+          draft.gameCode = gameCode;
+        }),
       })
-    })),
+    ),
     skipQuestion: assign(({ context }) => ({
-      public: produce(context.public, draft => {
+      public: produce(context.public, (draft) => {
         draft.currentQuestion = null;
-        draft.buzzerQueue = [];
+        // draft.buzzerQueue = [];
         draft.questionNumber += 1;
 
         if (draft.questionNumber > draft.settings.questionCount) {
           draft.gameStatus = "finished";
-          draft.winner = draft.players.reduce((a, b) => 
+          draft.winner = draft.players.reduce((a, b) =>
             a.score > b.score ? a : b
           ).id;
         }
-      })
+      }),
     })),
     removePlayer: assign(({ context }, { playerId }: { playerId: string }) => ({
-      public: produce(context.public, draft => {
-        draft.players = draft.players.filter(p => p.id !== playerId);
-        draft.buzzerQueue = draft.buzzerQueue.filter(id => id !== playerId);
-        if (draft.previousAnswers) {
-          draft.previousAnswers = draft.previousAnswers.filter(a => a.playerId !== playerId);
+      public: produce(context.public, (draft) => {
+        draft.players = draft.players.filter((p) => p.id !== playerId);
+        // draft.buzzerQueue = draft.buzzerQueue.filter(id => id !== playerId);
+        // if (draft.previousAnswers) {
+        //   draft.previousAnswers = draft.previousAnswers.filter(a => a.playerId !== playerId);
+        // }
+      }),
+    })),
+    submitAnswer: assign(({ context, event }) => ({
+      public: produce(context.public, (draft) => {
+        if (draft.currentQuestion && event.type === "SUBMIT_ANSWER") {
+          draft.currentQuestion.answers.push({
+            playerId: event.caller.id,
+            playerName: draft.players.find(p => p.id === event.caller.id)?.name || "Unknown",
+            value: event.value,
+            timestamp: Date.now()
+          });
         }
-      })
+      }),
+    })),
+    processQuestionResults: assign(({ context }) => ({
+      public: produce(context.public, (draft) => {
+        if (!draft.currentQuestion) return;
+
+        const question = draft.questions[draft.currentQuestion.questionId];
+        const scores = calculateScores(
+          draft.currentQuestion.answers,
+          question,
+          draft.currentQuestion.startTime
+        );
+
+        // Update player scores
+        scores.forEach(score => {
+          const player = draft.players.find(p => p.id === score.playerId);
+          if (player) {
+            player.score += Math.round(score.points); // Round points for final scores
+          }
+        });
+
+        // Add to question results
+        draft.questionResults.push({
+          questionId: draft.currentQuestion.questionId,
+          questionNumber: draft.questionNumber,
+          answers: draft.currentQuestion.answers,
+          scores
+        });
+
+        // Clear current question and increment counter
+        draft.currentQuestion = null;
+        draft.questionNumber += 1;
+
+        // Check if game should end
+        if (draft.questionNumber > draft.settings.questionCount) {
+          draft.gameStatus = "finished";
+          // Find winner(s) - could be tied
+          const maxScore = Math.max(...draft.players.map(p => p.score));
+          const winners = draft.players.filter(p => p.score === maxScore);
+          draft.winner = winners[0].id; // For now just take first winner
+        }
+      }),
     })),
   },
 }).createMachine({
@@ -148,8 +338,11 @@ export const gameMachine = setup({
       settings: {
         maxPlayers: 10,
         questionCount: 10,
+        answerTimeWindow: 30,
       },
       questionNumber: 0,
+      questions: {},
+      questionResults: [],
     },
     private: {},
   }),
@@ -160,11 +353,11 @@ export const gameMachine = setup({
       states: {
         generatingCode: {
           invoke: {
-            src: 'generateGameCode',
+            src: "generateGameCode",
             onDone: {
-              target: 'ready',
+              target: "ready",
               actions: {
-                type: 'assignGeneratedGameCode',
+                type: "assignGeneratedGameCode",
                 params: ({ event }: { event: DoneActorEvent<string> }) => ({
                   gameCode: event.output,
                 }),
@@ -176,8 +369,12 @@ export const gameMachine = setup({
           on: {
             JOIN_GAME: {
               actions: {
-                type: 'addPlayerToGame',
-                params: ({ event }: { event: Extract<GameEvent, { type: 'JOIN_GAME' }> }) => ({
+                type: "addPlayerToGame",
+                params: ({
+                  event,
+                }: {
+                  event: Extract<GameEvent, { type: "JOIN_GAME" }>;
+                }) => ({
                   id: event.caller.id,
                   name: event.playerName,
                 }),
@@ -187,15 +384,19 @@ export const gameMachine = setup({
               guard: "isHost",
               target: "#triviaGame.active",
               actions: [
-                { type: 'updateGameStatus', params: { status: "active" } },
-                { type: 'setQuestionNumber', params: { number: 1 } },
+                { type: "updateGameStatus", params: { status: "active" } },
+                { type: "setQuestionNumber", params: { number: 1 } },
               ],
             },
             REMOVE_PLAYER: {
               guard: "isHost",
               actions: {
-                type: 'removePlayer',
-                params: ({ event }: { event: Extract<GameEvent, { type: 'REMOVE_PLAYER' }> }) => ({
+                type: "removePlayer",
+                params: ({
+                  event,
+                }: {
+                  event: Extract<GameEvent, { type: "REMOVE_PLAYER" }>;
+                }) => ({
                   playerId: event.playerId,
                 }),
               },
@@ -207,43 +408,71 @@ export const gameMachine = setup({
     active: {
       initial: "questionPrep",
       states: {
-        questionPrep: {},
-        questionActive: {},
-        answerValidation: {},
+        questionPrep: {
+          on: {
+            SUBMIT_QUESTION: {
+              guard: "isHost",
+              target: "questionActive",
+              actions: {
+                type: "setQuestion",
+                params: ({
+                  event,
+                }: {
+                  event: Extract<GameEvent, { type: "SUBMIT_QUESTION" }>;
+                }) => ({
+                  question: {
+                    text: event.text,
+                    correctAnswer: event.correctAnswer,
+                    requireExactAnswer: event.requireExactAnswer,
+                  },
+                }),
+              },
+            },
+          },
+        },
+        questionActive: {
+          entry: [
+            // assign(({ context }: { context: GameServerContext }) => ({
+            //   public: produce(context.public, (draft) => {
+            //     if (draft.currentQuestion) {
+            //       draft.currentQuestion.startTime = Date.now();
+            //     }
+            //   }),
+            // })),
+          ],
+          invoke: {
+            src: "answerTimer",
+            input: ({ context }: { context: GameServerContext }) => ({
+              timeWindow: context.public.settings.answerTimeWindow,
+            }),
+            onDone: {
+              target: "questionPrep",
+              actions: "processQuestionResults",
+            },
+          },
+          on: {
+            SUBMIT_ANSWER: {
+              actions: "submitAnswer",
+            },
+            SKIP_QUESTION: {
+              guard: "isHost",
+              target: "questionPrep",
+              actions: "processQuestionResults",
+            },
+          },
+        },
       },
       on: {
         JOIN_GAME: {
           actions: {
-            type: 'addPlayerToGame',
-            params: ({ event }: { event: Extract<GameEvent, { type: 'JOIN_GAME' }> }) => ({
+            type: "addPlayerToGame",
+            params: ({
+              event,
+            }: {
+              event: Extract<GameEvent, { type: "JOIN_GAME" }>;
+            }) => ({
               id: event.caller.id,
               name: event.playerName,
-            }),
-          },
-        },
-        SUBMIT_QUESTION: {
-          guard: "isHost",
-          target: ".questionActive",
-          actions: {
-            type: 'setQuestion',
-            params: ({ event }: { event: Extract<GameEvent, { type: 'SUBMIT_QUESTION' }> }) => ({
-              question: event.question,
-            }),
-          },
-        },
-        BUZZ_IN: {
-          guard: and(["canBuzzIn", "hasNotBuzzedYet"]),
-          target: ".answerValidation",
-          actions: "addToBuzzerQueue",
-        },
-        VALIDATE_ANSWER: {
-          guard: "isHost",
-          target: ".questionPrep",
-          actions: {
-            type: 'validateAnswer',
-            params: ({ event }: { event: Extract<GameEvent, { type: 'VALIDATE_ANSWER' }> }) => ({
-              playerId: event.playerId,
-              correct: event.correct,
             }),
           },
         },
@@ -251,20 +480,19 @@ export const gameMachine = setup({
           guard: "isHost",
           target: "finished",
           actions: [
-            { type: 'updateGameStatus', params: { status: "finished" } },
-            'setWinner',
+            { type: "updateGameStatus", params: { status: "finished" } },
+            "setWinner",
           ],
-        },
-        SKIP_QUESTION: {
-          guard: "isHost",
-          target: ".questionPrep",
-          actions: "skipQuestion",
         },
         REMOVE_PLAYER: {
           guard: "isHost",
           actions: {
-            type: 'removePlayer',
-            params: ({ event }: { event: Extract<GameEvent, { type: 'REMOVE_PLAYER' }> }) => ({
+            type: "removePlayer",
+            params: ({
+              event,
+            }: {
+              event: Extract<GameEvent, { type: "REMOVE_PLAYER" }>;
+            }) => ({
               playerId: event.playerId,
             }),
           },

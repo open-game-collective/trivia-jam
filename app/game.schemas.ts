@@ -13,15 +13,9 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("SUBMIT_QUESTION"),
-    question: z.string(),
-  }),
-  z.object({
-    type: z.literal("SHOW_QUESTION"),
-  }),
-  z.object({
-    type: z.literal("VALIDATE_ANSWER"),
-    playerId: z.string(),
-    correct: z.boolean(),
+    text: z.string(),
+    correctAnswer: z.number(),
+    requireExactAnswer: z.boolean(),
   }),
   z.object({
     type: z.literal("END_GAME"),
@@ -36,15 +30,17 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
     playerName: z.string(),
   }),
   z.object({
-    type: z.literal("BUZZ_IN"),
+    type: z.literal("SUBMIT_ANSWER"),
+    value: z.number(),
   }),
 
   // Update Settings Event
   z.object({
     type: z.literal("UPDATE_SETTINGS"),
     settings: z.object({
-      maxPlayers: z.number().min(2).max(20),
+      maxPlayers: z.number().min(2).max(1000000),
       questionCount: z.number().min(1).max(50),
+      answerTimeWindow: z.number().min(5).max(120),
     }),
   }),
 
@@ -65,5 +61,30 @@ export const GameServiceEventSchema = z.discriminatedUnion("type", [
         score: z.number(),
       })
     ),
+  }),
+  z.object({
+    type: z.literal("ANSWER_TIMEOUT"),
+    questionId: z.string(),
+    questionNumber: z.number(),
+  }),
+  z.object({
+    type: z.literal("UPDATE_SCORES"),
+    result: z.object({
+      questionId: z.string(),
+      questionNumber: z.number(),
+      answers: z.array(z.object({
+        playerId: z.string(),
+        playerName: z.string(),
+        value: z.number(),
+        timestamp: z.number(),
+      })),
+      scores: z.array(z.object({
+        playerId: z.string(),
+        playerName: z.string(),
+        points: z.number(),
+        position: z.number(),
+        timeTaken: z.number(),
+      })),
+    }),
   }),
 ]);
