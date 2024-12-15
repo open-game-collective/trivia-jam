@@ -1,121 +1,65 @@
-# Trivia Jam
+# Trivia Jam 🎮
 
-A real-time trivia game where players join from their phones and play on shared TV displays.
+Trivia Jam is a real-time multiplayer trivia game designed for social gatherings, classrooms, and events. Players join from their phones while questions and scores are displayed on a shared TV or large screen.
 
-## Game Flow
+## How It Works 🎯
 
-1. Host starts a game from their device
-2. Players join using a unique game code
-3. Host initiates game start
-4. Host creates questions in real-time
-5. Players buzz in to answer questions
-6. Host validates answers
-7. Points are tracked and winner is determined
+1. **Host Creates Game**: A host starts a game and gets a unique game code
+2. **Players Join**: Players join using the game code on their phones at triviajam.tv
+3. **Questions**: The host presents numerical questions (e.g., "What year was the Declaration of Independence signed?")
+4. **Fast-Paced Answers**: Players submit their answers within a time limit
+5. **Scoring**: Points are awarded based on accuracy and speed:
+   - Exact answers get more points
+   - When no exact answers exist, the closest answer scores
+   - Faster correct answers rank higher
+   - Ties are handled fairly with averaged points
 
-## Routes Structure
+## Features ✨
 
-### Main Routes
+- **Real-time Gameplay**: Instant updates for all players using WebSocket technology
+- **Flexible Scoring**: Supports both exact and closest-answer modes
+- **Time-Based Competition**: Players race against the clock and each other
+- **Multiple Display Modes**:
+  - Host View: Controls game flow and presents questions
+  - Player View: Mobile-optimized interface for submitting answers
+  - Spectator View: Large-screen display showing questions and scores
 
-- `WEB_HOST/`
+## Technical Stack 🛠
 
-  - Landing page
-  - Contains "Start New Game" button
-  - Redirects host to a new game session
+- Built with React and TypeScript
+- State management using XState and Actor Kit
+- Real-time updates via WebSocket
+- Storybook for component documentation
+- Fully tested with interactive stories
 
-- `WEB_HOST/games/[gameId]`
-  - Main game route (uses nanoid for gameId)
-  - Detects device type:
-    - Mobile: Player/Host interface
-    - Desktop: Game board display
+## Development 🚀
 
-### Game Board Views (Desktop)
+### Prerequisites
 
-The game board will have different views based on game state:
+- Node.js 16+
+- npm or yarn
 
-1. **Lobby View**
+### Setup
 
-   - Shows joining instructions
-   - Displays currently joined players
-   - Waiting for host to start
+```bash
+# Install dependencies
+npm install
 
-2. **Question Preparation View**
+# Run development server
+npm run dev
 
-   - "Waiting for next question..."
-   - Host is typing question
+# Run Storybook
+npm run storybook
 
-3. **Active Question View**
+# Run tests
+npm test
+```
 
-   - Displays current question
-   - Shows buzzer order/queue
-   - Displays scores
+## Component Library 📚
 
-4. **Game Over View**
-   - Final scores
-   - Winner announcement
-   - Option to start new game
+Browse our component library and UI documentation:
+[Trivia Jam Storybook](https://trivia-jam-storybook.pages.dev/)
 
-### Player/Host Views (Mobile)
+## Play Now 🎮
 
-#### Host Views
-
-1. **Setup View**
-
-   - Game settings
-   - Start game button
-   - Player management
-
-2. **Question Creation View**
-   - Question input
-   - Show/hide question controls
-   - Answer validation interface
-
-#### Player Views
-
-1. **Join View**
-
-   - Name entry
-   - Waiting for game to start
-
-2. **Game View**
-   - Buzzer button
-   - Current score
-   - Game status
-
-## Technical Architecture
-
-- Next.js for the frontend
-- Real-time server for game state management
-- JSON patch for state synchronization
-- Device detection for appropriate interface rendering
-- WebSocket connections for real-time updates
-
-## Development Resources
-
-### Storybook
-The component library and UI documentation can be viewed at:
-[https://trivia-jam-storybook.pages.dev/](https://trivia-jam-storybook.pages.dev/)
-
-### Live Application
-Play Trivia Jam at:
-[https://triviajam.tv](https://triviajam.tv)
-
-## State Management
-
-The game state will be managed centrally on the server with the following key components:
-
-- Game session data
-- Connected players
-- Current question
-- Buzzer queue
-- Player scores
-- Game phase tracking
-
-## Real-time Updates
-
-All game state changes will be synchronized across:
-
-- Game board display
-- Host interface
-- Player interfaces
-
-Using WebSocket connections and JSON patch for efficient updates.
+Try Trivia Jam at [https://triviajam.tv](https://triviajam.tv)
