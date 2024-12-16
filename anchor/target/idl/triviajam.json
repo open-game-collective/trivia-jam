@@ -8,90 +8,25 @@
   },
   "instructions": [
     {
-      "name": "close",
+      "name": "initialize_game",
       "discriminator": [
-        98,
-        165,
-        201,
-        177,
-        108,
-        65,
-        206,
-        96
+        44,
+        62,
+        102,
+        247,
+        126,
+        208,
+        130,
+        215
       ],
       "accounts": [
         {
-          "name": "payer",
+          "name": "host",
           "writable": true,
           "signer": true
         },
         {
-          "name": "triviajam",
-          "writable": true
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "decrement",
-      "discriminator": [
-        106,
-        227,
-        168,
-        59,
-        248,
-        27,
-        150,
-        101
-      ],
-      "accounts": [
-        {
-          "name": "triviajam",
-          "writable": true
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "increment",
-      "discriminator": [
-        11,
-        18,
-        104,
-        9,
-        104,
-        174,
-        59,
-        33
-      ],
-      "accounts": [
-        {
-          "name": "triviajam",
-          "writable": true
-        }
-      ],
-      "args": []
-    },
-    {
-      "name": "initialize",
-      "discriminator": [
-        175,
-        175,
-        109,
-        31,
-        13,
-        152,
-        155,
-        237
-      ],
-      "accounts": [
-        {
-          "name": "payer",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "triviajam",
+          "name": "game",
           "writable": true,
           "signer": true
         },
@@ -100,58 +35,142 @@
           "address": "11111111111111111111111111111111"
         }
       ],
-      "args": []
-    },
-    {
-      "name": "set",
-      "discriminator": [
-        198,
-        51,
-        53,
-        241,
-        116,
-        29,
-        126,
-        194
-      ],
-      "accounts": [
-        {
-          "name": "triviajam",
-          "writable": true
-        }
-      ],
       "args": [
         {
-          "name": "value",
+          "name": "entry_fee",
+          "type": "u64"
+        },
+        {
+          "name": "max_players",
           "type": "u8"
         }
       ]
+    },
+    {
+      "name": "join_game",
+      "discriminator": [
+        107,
+        112,
+        18,
+        38,
+        56,
+        173,
+        60,
+        128
+      ],
+      "accounts": [
+        {
+          "name": "game",
+          "writable": true
+        },
+        {
+          "name": "player",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "player_token_account",
+          "writable": true
+        },
+        {
+          "name": "game_vault",
+          "writable": true
+        },
+        {
+          "name": "token_program",
+          "address": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [
     {
-      "name": "Triviajam",
+      "name": "Game",
       "discriminator": [
-        235,
-        252,
-        67,
-        96,
-        26,
+        27,
+        90,
+        166,
+        125,
+        74,
         100,
-        85,
-        200
+        121,
+        18
       ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "GameNotInLobby",
+      "msg": "Game is not in lobby state"
+    },
+    {
+      "code": 6001,
+      "name": "GameFull",
+      "msg": "Game is full"
+    },
+    {
+      "code": 6002,
+      "name": "UnauthorizedHost",
+      "msg": "Unauthorized host"
+    },
+    {
+      "code": 6003,
+      "name": "GameAlreadyEnded",
+      "msg": "Game has already ended"
     }
   ],
   "types": [
     {
-      "name": "Triviajam",
+      "name": "Game",
       "type": {
         "kind": "struct",
         "fields": [
           {
-            "name": "count",
+            "name": "host",
+            "type": "pubkey"
+          },
+          {
+            "name": "entry_fee",
+            "type": "u64"
+          },
+          {
+            "name": "max_players",
             "type": "u8"
+          },
+          {
+            "name": "player_count",
+            "type": "u8"
+          },
+          {
+            "name": "state",
+            "type": {
+              "defined": {
+                "name": "GameState"
+              }
+            }
+          },
+          {
+            "name": "total_prize_pool",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "GameState",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Lobby"
+          },
+          {
+            "name": "InProgress"
+          },
+          {
+            "name": "Ended"
           }
         ]
       }

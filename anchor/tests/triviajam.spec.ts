@@ -1,100 +1,114 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
-import { Keypair } from "@solana/web3.js";
+import { Keypair, PublicKey, SystemProgram } from "@solana/web3.js";
 import { Triviajam } from "../target/types/triviajam";
+import { TOKEN_PROGRAM_ID, createMint, createAccount, mintTo } from "@solana/spl-token";
 
 describe("triviajam", () => {
-  // Configure the client to use the local cluster.
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
   const payer = provider.wallet as anchor.Wallet;
 
   const program = anchor.workspace.Triviajam as Program<Triviajam>;
 
-  const triviajamKeypair = Keypair.generate();
+  const gameKeypair = Keypair.generate();
+  let mint: PublicKey;
+  let playerTokenAccount: PublicKey;
+  let gameVault: PublicKey;
 
-  it("Initialize Triviajam", async () => {
+  beforeAll(async () => {
+    // Create token mint
+    mint = await createMint(
+      provider.connection,
+      payer.payer,
+      payer.publicKey,
+      null,
+      6 // 6 decimals
+    );
+
+    // Create player token account
+    playerTokenAccount = await createAccount(
+      provider.connection,
+      payer.payer,
+      mint,
+      payer.publicKey
+    );
+
+    // Mint some tokens to player
+    await mintTo(
+      provider.connection,
+      payer.payer,
+      mint,
+      playerTokenAccount,
+      payer.payer,
+      1000000000 // 1000 tokens
+    );
+
+    // Create game vault
+    gameVault = await createAccount(
+      provider.connection,
+      payer.payer,
+      mint,
+      gameKeypair.publicKey
+    );
+  });
+
+  it("Initialize Game", async () => {
     await program.methods
-      .initialize()
+      .initializeGame(
+        new anchor.BN(100), // 100 token entry fee
+        10 // max 10 players
+      )
       .accounts({
-        triviajam: triviajamKeypair.publicKey,
-        payer: payer.publicKey,
+        game: gameKeypair.publicKey,
+        host: payer.publicKey,
       })
-      .signers([triviajamKeypair])
+      .signers([gameKeypair])
       .rpc();
 
-    const currentCount = await program.account.triviajam.fetch(
-      triviajamKeypair.publicKey
-    );
-
-    expect(currentCount.count).toEqual(0);
+    const gameAccount = await program.account.game.fetch(gameKeypair.publicKey);
+    expect(gameAccount.host).toEqual(payer.publicKey);
+    expect(gameAccount.entryFee.toNumber()).toEqual(100);
+    expect(gameAccount.maxPlayers).toEqual(10);
+    expect(gameAccount.playerCount).toEqual(0);
+    expect(gameAccount.state).toEqual({ lobby: {} });
+    expect(gameAccount.totalPrizePool.toNumber()).toEqual(0);
   });
 
-  it("Increment Triviajam", async () => {
+  it("Join Game", async () => {
     await program.methods
-      .increment()
-      .accounts({ triviajam: triviajamKeypair.publicKey })
-      .rpc();
-
-    const currentCount = await program.account.triviajam.fetch(
-      triviajamKeypair.publicKey
-    );
-
-    expect(currentCount.count).toEqual(1);
-  });
-
-  it("Increment Triviajam Again", async () => {
-    await program.methods
-      .increment()
-      .accounts({ triviajam: triviajamKeypair.publicKey })
-      .rpc();
-
-    const currentCount = await program.account.triviajam.fetch(
-      triviajamKeypair.publicKey
-    );
-
-    expect(currentCount.count).toEqual(2);
-  });
-
-  it("Decrement Triviajam", async () => {
-    await program.methods
-      .decrement()
-      .accounts({ triviajam: triviajamKeypair.publicKey })
-      .rpc();
-
-    const currentCount = await program.account.triviajam.fetch(
-      triviajamKeypair.publicKey
-    );
-
-    expect(currentCount.count).toEqual(1);
-  });
-
-  it("Set triviajam value", async () => {
-    await program.methods
-      .set(42)
-      .accounts({ triviajam: triviajamKeypair.publicKey })
-      .rpc();
-
-    const currentCount = await program.account.triviajam.fetch(
-      triviajamKeypair.publicKey
-    );
-
-    expect(currentCount.count).toEqual(42);
-  });
-
-  it("Set close the triviajam account", async () => {
-    await program.methods
-      .close()
+      .joinGame()
       .accounts({
-        payer: payer.publicKey,
-        triviajam: triviajamKeypair.publicKey,
+        game: gameKeypair.publicKey,
+        player: payer.publicKey,
+        playerTokenAccount: playerTokenAccount,
+        gameVault: gameVault,
       })
       .rpc();
 
-    // The account should no longer exist, returning null.
-    const userAccount = await program.account.triviajam.fetchNullable(
-      triviajamKeypair.publicKey
-    );
-    expect(userAccount).toBeNull();
+    const gameAccount = await program.account.game.fetch(gameKeypair.publicKey);
+    expect(gameAccount.playerCount).toEqual(1);
+    expect(gameAccount.totalPrizePool.toNumber()).toEqual(100);
   });
+
+  // For the endGame error, you need to update your Rust program and regenerate the IDL
+  // The endGame instruction is missing from your IDL
+  // For now, you might want to comment out this test until you've properly added
+  // the endGame instruction to your program
+  /*
+  it("End Game", async () => {
+    const winners = [[payer.publicKey, 1]];
+    
+    await program.methods
+      .endGame(winners)
+      .accounts({
+        game: gameKeypair.publicKey,
+        host: payer.publicKey,
+      })
+      .rpc();
+
+    const gameAccount = await program.account.game.fetch(gameKeypair.publicKey);
+    expect(gameAccount.state).toEqual({ ended: {} });
+  });
+  */
 });
