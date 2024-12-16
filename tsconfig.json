@@ -4,7 +4,10 @@
     "types": [
       "@remix-run/cloudflare",
       "@types/node",
-      "@cloudflare/workers-types"
+      "@cloudflare/workers-types",
+      "node",
+      "jest",
+      "chai"
     ],
     "isolatedModules": true,
     "esModuleInterop": true,
@@ -23,6 +26,9 @@
     },
     "noEmit": true
   },
-  "include": ["app/**/*.ts", "app/**/*.tsx"],
+  "include": [
+    "app/**/*",
+    "anchor/tests/**/*"
+  ],
   "exclude": ["node_modules", "**/*.stories.tsx", "**/*.stories.ts"]
 }
