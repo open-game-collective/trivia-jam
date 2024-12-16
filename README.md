@@ -19,6 +19,10 @@ Trivia Jam is a real-time multiplayer trivia game designed for social gatherings
 - **Real-time Gameplay**: Instant updates for all players using WebSocket technology
 - **Flexible Scoring**: Supports both exact and closest-answer modes
 - **Time-Based Competition**: Players race against the clock and each other
+- **Solana Token Rewards**: 
+  - Players can connect their Solana wallets
+  - Automatic token distribution for winners
+  - Configurable reward amounts
 - **Multiple Display Modes**:
   - Host View: Controls game flow and presents questions
   - Player View: Mobile-optimized interface for submitting answers

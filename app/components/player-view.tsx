@@ -7,6 +7,8 @@ import { SessionContext } from "~/session.context";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/react";
 import { HelpModal } from "./help-modal";
+import { useWallet } from '@solana/wallet-adapter-react';
+import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 
 export const PlayerView = () => {
   const gameState = GameContext.useSelector((state) => state);
@@ -16,6 +18,7 @@ export const PlayerView = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const send = GameContext.useSend();
   const [timeLeft, setTimeLeft] = useState(0);
+  const { publicKey } = useWallet();
 
   const player = players.find((p) => p.id === sessionState.userId);
   const hasAnswered = currentQuestion?.answers.some(
@@ -201,6 +204,15 @@ export const PlayerView = () => {
 
         {gameStatus === "finished" && <GameFinishedDisplay player={player} />}
       </AnimatePresence>
+
+      <div className="wallet-section">
+        <WalletMultiButton />
+        {publicKey && (
+          <p className="text-sm text-gray-600">
+            Connected: {publicKey.toString().slice(0, 8)}...
+          </p>
+        )}
+      </div>
     </div>
   );
 };

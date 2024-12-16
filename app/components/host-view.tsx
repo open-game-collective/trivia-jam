@@ -49,6 +49,9 @@ export const HostView = ({
   } = gameState.public;
   const send = GameContext.useSend();
 
+  const [tokenRewardsEnabled, setTokenRewardsEnabled] = useState(false);
+  const [rewardAmount, setRewardAmount] = useState(1);
+
   if (sessionState.userId !== hostId) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-4">
@@ -126,6 +129,32 @@ export const HostView = ({
 
         {gameStatus === "finished" && <GameFinishedDisplay players={players} />}
       </AnimatePresence>
+
+      <div className="token-rewards-config">
+        <h3>Token Rewards</h3>
+        <label>
+          <input
+            type="checkbox"
+            checked={tokenRewardsEnabled}
+            onChange={(e) => setTokenRewardsEnabled(e.target.checked)}
+          />
+          Enable Token Rewards
+        </label>
+        
+        {tokenRewardsEnabled && (
+          <div>
+            <label>
+              Reward Amount:
+              <input
+                type="number"
+                value={rewardAmount}
+                onChange={(e) => setRewardAmount(Number(e.target.value))}
+                min="0"
+              />
+            </label>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
