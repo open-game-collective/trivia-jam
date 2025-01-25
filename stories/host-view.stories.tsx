@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react";
-import { expect, fn } from "@storybook/test";
+import { expect, fn, within } from "@storybook/test";
 import { userEvent } from "@storybook/testing-library";
 import { withActorKit } from "actor-kit/storybook";
 import { createActorKitMockClient } from "actor-kit/test";
@@ -87,6 +87,13 @@ export const InLobby: Story = {
               { id: "player-1", name: "Player 1", score: 0 },
               { id: "player-2", name: "Player 2", score: 0 },
             ],
+            questions: {},
+            questionResults: [],
+            settings: {
+              maxPlayers: 10,
+              questionCount: 10,
+              answerTimeWindow: 30,
+            },
           },
           value: { lobby: "ready" } as const,
         },
@@ -105,6 +112,13 @@ export const InLobby: Story = {
             { id: "player-1", name: "Player 1", score: 0 },
             { id: "player-2", name: "Player 2", score: 0 },
           ],
+          questions: {},
+          questionResults: [],
+          settings: {
+            maxPlayers: 10,
+            questionCount: 10,
+            answerTimeWindow: 30,
+          },
         },
         value: { lobby: "ready" } as const,
       },
@@ -649,5 +663,221 @@ export const QuestionWithTwoAnswers: Story = {
         },
       },
     },
+  },
+};
+
+export const QuestionPrepWithPreviousResults: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            id: "game-123",
+            hostId: "host-123",
+            gameStatus: "active",
+            players: [
+              { id: "player-1", name: "Player 1", score: 3 },
+              { id: "player-2", name: "Player 2", score: 2 },
+              { id: "player-3", name: "Player 3", score: 0 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "What year was the Declaration of Independence signed?",
+                correctAnswer: 1776,
+                requireExactAnswer: false,
+              },
+            },
+            currentQuestion: null,
+            questionResults: [
+              {
+                questionId: "q1",
+                questionNumber: 1,
+                answers: [
+                  {
+                    playerId: "player-1",
+                    playerName: "Player 1",
+                    value: 1776,
+                    timestamp: Date.now() - 8000,
+                  },
+                  {
+                    playerId: "player-2",
+                    playerName: "Player 2",
+                    value: 1775,
+                    timestamp: Date.now() - 5000,
+                  },
+                  {
+                    playerId: "player-3",
+                    playerName: "Player 3",
+                    value: 1770,
+                    timestamp: Date.now() - 3000,
+                  },
+                ],
+                scores: [
+                  {
+                    playerId: "player-1",
+                    playerName: "Player 1",
+                    points: 3,
+                    position: 1,
+                    timeTaken: 8,
+                  },
+                  {
+                    playerId: "player-2",
+                    playerName: "Player 2",
+                    points: 2,
+                    position: 2,
+                    timeTaken: 5,
+                  },
+                  {
+                    playerId: "player-3",
+                    playerName: "Player 3",
+                    points: 0,
+                    position: 3,
+                    timeTaken: 3,
+                  },
+                ],
+              },
+            ],
+            settings: {
+              maxPlayers: 10,
+              questionCount: 10,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { active: "questionPrep" },
+        },
+      },
+    },
+  },
+};
+
+export const ShowingPreviousResults: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            id: "game-123",
+            hostId: "host-123",
+            gameStatus: "active",
+            questionNumber: 2,
+            players: [
+              { id: "player-1", name: "Player 1", score: 3 },
+              { id: "player-2", name: "Player 2", score: 2 },
+              { id: "player-3", name: "Player 3", score: 0 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "What year was the Declaration of Independence signed?",
+                correctAnswer: 1776,
+                requireExactAnswer: false,
+              },
+            },
+            currentQuestion: null,
+            questionResults: [{
+              questionId: "q1",
+              questionNumber: 1,
+              answers: [
+                {
+                  playerId: "player-1",
+                  playerName: "Player 1",
+                  value: 1776,
+                  timestamp: Date.now() - 8000,
+                },
+                {
+                  playerId: "player-2",
+                  playerName: "Player 2",
+                  value: 1775,
+                  timestamp: Date.now() - 5000,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  value: 1770,
+                  timestamp: Date.now() - 3000,
+                },
+              ],
+              scores: [
+                {
+                  playerId: "player-1",
+                  playerName: "Player 1",
+                  points: 3,
+                  position: 1,
+                  timeTaken: 8,
+                },
+                {
+                  playerId: "player-2",
+                  playerName: "Player 2",
+                  points: 2,
+                  position: 2,
+                  timeTaken: 5,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  points: 0,
+                  position: 3,
+                  timeTaken: 3,
+                },
+              ],
+            }],
+          },
+          value: { active: "questionPrep" },
+        },
+      },
+    },
+  },
+  play: async ({ canvas, mount }) => {
+    await mount(<HostView host="dev.triviajam.tv" />);
+
+    // Find the question text in the h1
+    const questionText = await canvas.findByRole('heading', {
+      name: "What year was the Declaration of Independence signed?"
+    });
+    expect(questionText).toBeInTheDocument();
+
+    // Verify correct answer is shown
+    const correctAnswer = await canvas.findByText("1776", {
+      selector: '.text-green-400' // Only match the green correct answer text
+    });
+    expect(correctAnswer).toBeInTheDocument();
+
+    // Verify player results using more specific selectors
+    const player1Row = await canvas.findByTestId('player-result-player-1');
+    within(player1Row).getByText("Player 1");
+    within(player1Row).getByText((content) => content.includes("1776")); // Match partial text
+    within(player1Row).getByText((content) => content.includes("8.0s")); // Match partial text
+
+    const player2Row = await canvas.findByTestId('player-result-player-2');
+    within(player2Row).getByText("Player 2");
+    within(player2Row).getByText((content) => content.includes("1775")); // Match partial text
+    within(player2Row).getByText((content) => content.includes("5.0s")); // Match partial text
+
+    // Verify question input form is present
+    const questionInput = await canvas.findByLabelText("Enter Question");
+    expect(questionInput).toBeInTheDocument();
   },
 }; 

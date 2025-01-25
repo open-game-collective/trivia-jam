@@ -135,33 +135,39 @@ function HomePageContent({ newGameId, $showHelp }: HomePageContentProps) {
                 </h2>
 
                 <div className="space-y-4 text-white/90">
-                  <div className="bg-white/10 rounded-xl p-4">
-                    <h3 className="text-lg md:text-xl font-semibold mb-2 text-indigo-300">Game Basics</h3>
-                    <ul className="space-y-2 list-disc list-inside text-sm md:text-base">
-                      <li>Answer numerical trivia questions as quickly as possible</li>
-                      <li>All answers must be numbers (years, quantities, measurements, etc.)</li>
-                      <li>You have 30 seconds to submit your answer for each question</li>
-                      <li>Points are awarded based on accuracy and speed</li>
+                  <div className="bg-white/10 rounded-xl p-6">
+                    <h3 className="text-2xl font-semibold mb-4 text-indigo-300">The Basics</h3>
+                    <ul className="space-y-4 text-lg">
+                      <li className="flex items-start gap-3">
+                        <span className="text-2xl">1️⃣</span>
+                        <span>Questions will ask for a number as the answer</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-2xl">2️⃣</span>
+                        <span>Type your answer and tap Submit</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-2xl">3️⃣</span>
+                        <span>You have 25 seconds for each question</span>
+                      </li>
                     </ul>
                   </div>
 
-                  <div className="bg-white/10 rounded-xl p-4">
-                    <h3 className="text-lg md:text-xl font-semibold mb-2 text-indigo-300">Scoring</h3>
-                    <ul className="space-y-2 list-disc list-inside text-sm md:text-base">
-                      <li>Top 30% of players can earn points each round</li>
-                      <li>Exact answers are prioritized over close answers</li>
-                      <li>First place: 3 points</li>
-                      <li>Second place: 2 points</li>
-                      <li>Third place: 1 point</li>
-                    </ul>
-                  </div>
-
-                  <div className="bg-white/10 rounded-xl p-4">
-                    <h3 className="text-lg md:text-xl font-semibold mb-2 text-indigo-300">Quick Tips</h3>
-                    <ul className="space-y-2 list-disc list-inside text-sm md:text-base">
-                      <li>Balance speed with accuracy - both matter!</li>
-                      <li>Watch the timer - answers lock when time runs out</li>
-                      <li>Keep an eye on the leaderboard between questions</li>
+                  <div className="bg-white/10 rounded-xl p-6">
+                    <h3 className="text-2xl font-semibold mb-4 text-indigo-300">Scoring</h3>
+                    <ul className="space-y-4 text-lg">
+                      <li className="flex items-start gap-3">
+                        <span className="text-2xl">🎯</span>
+                        <span>Getting the exact answer is best</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-2xl">👍</span>
+                        <span>Being close to the answer can still earn points</span>
+                      </li>
+                      <li className="flex items-start gap-3">
+                        <span className="text-2xl">⚡️</span>
+                        <span>Faster answers win ties</span>
+                      </li>
                     </ul>
                   </div>
                 </div>

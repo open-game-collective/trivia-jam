@@ -1,11 +1,19 @@
 import { createRequestHandler, logDevReady } from "@remix-run/cloudflare";
 import * as build from "@remix-run/dev/server-build";
 import { DurableObject } from "cloudflare:workers";
-import { SignJWT, jwtVerify } from "jose";
+import {
+  REFRESH_TOKEN_COOKIE_KEY,
+  SESSION_TOKEN_COOKIE_KEY,
+} from "./constants";
 import type { Env } from "./env";
-
-const ACCESS_TOKEN_COOKIE_KEY = "access-token";
-const REFRESH_TOKEN_COOKIE_KEY = "refresh-token";
+import {
+  createNewUserSession,
+  createRefreshToken,
+  createSessionToken,
+  getCookie,
+  verifyOneTimeToken,
+  verifySessionToken,
+} from "./utils";
 
 // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
 if (process.env.NODE_ENV === "development") {
@@ -19,35 +27,90 @@ export class Remix extends DurableObject<Env> {
     let userId: string;
     let sessionId: string;
     let pageSessionId: string;
-    let newAccessToken: string | undefined;
+    let oneTimeToken: string | undefined;
+    let sessionToken: string | undefined;
     let newRefreshToken: string | undefined;
 
-    const accessToken = this.getCookie(request, ACCESS_TOKEN_COOKIE_KEY);
-    const refreshToken = this.getCookie(request, REFRESH_TOKEN_COOKIE_KEY);
+    const accessToken = getCookie(request, SESSION_TOKEN_COOKIE_KEY);
+    const refreshToken = getCookie(request, REFRESH_TOKEN_COOKIE_KEY);
 
-    if (accessToken) {
-      const payload = await this.verifyToken(accessToken);
+    if (oneTimeToken) {
+      const payload = await verifyOneTimeToken({
+        token: oneTimeToken,
+        secret: this.env.SESSION_JWT_SECRET,
+      });
+      if (payload) {
+        userId = payload.userId;
+        sessionId = crypto.randomUUID();
+        sessionToken = await createSessionToken({
+          userId,
+          sessionId,
+          secret: this.env.SESSION_JWT_SECRET,
+        });
+        newRefreshToken = await createRefreshToken({
+          userId,
+          secret: this.env.SESSION_JWT_SECRET,
+        });
+      } else {
+        const newSession = await createNewUserSession({
+          secret: this.env.SESSION_JWT_SECRET,
+        });
+        userId = newSession.userId;
+        sessionId = newSession.sessionId;
+        sessionToken = newSession.sessionToken;
+        newRefreshToken = newSession.refreshToken;
+      }
+    } else if (accessToken) {
+      const payload = await verifySessionToken({
+        token: accessToken,
+        secret: this.env.SESSION_JWT_SECRET,
+      });
       if (payload) {
         userId = payload.userId;
         sessionId = payload.sessionId;
       } else {
-        [userId, sessionId, newAccessToken, newRefreshToken] =
-          await this.createNewUserSession();
+        const newSession = await createNewUserSession({
+          secret: this.env.SESSION_JWT_SECRET,
+        });
+        userId = newSession.userId;
+        sessionId = newSession.sessionId;
+        sessionToken = newSession.sessionToken;
+        newRefreshToken = newSession.refreshToken;
       }
     } else if (refreshToken) {
-      const payload = await this.verifyToken(refreshToken);
+      const payload = await verifySessionToken({
+        token: refreshToken,
+        secret: this.env.SESSION_JWT_SECRET,
+      });
       if (payload) {
         userId = payload.userId;
         sessionId = crypto.randomUUID();
-        newAccessToken = await this.createAccessToken(userId, sessionId);
-        newRefreshToken = await this.createRefreshToken(userId);
+        sessionToken = await createSessionToken({
+          userId,
+          sessionId,
+          secret: this.env.SESSION_JWT_SECRET,
+        });
+        newRefreshToken = await createRefreshToken({
+          userId,
+          secret: this.env.SESSION_JWT_SECRET,
+        });
       } else {
-        [userId, sessionId, newAccessToken, newRefreshToken] =
-          await this.createNewUserSession();
+        const newSession = await createNewUserSession({
+          secret: this.env.SESSION_JWT_SECRET,
+        });
+        userId = newSession.userId;
+        sessionId = newSession.sessionId;
+        sessionToken = newSession.sessionToken;
+        newRefreshToken = newSession.refreshToken;
       }
     } else {
-      [userId, sessionId, newAccessToken, newRefreshToken] =
-        await this.createNewUserSession();
+      const newSession = await createNewUserSession({
+        secret: this.env.SESSION_JWT_SECRET,
+      });
+      userId = newSession.userId;
+      sessionId = newSession.sessionId;
+      sessionToken = newSession.sessionToken;
+      newRefreshToken = newSession.refreshToken;
     }
 
     pageSessionId = crypto.randomUUID();
@@ -59,10 +122,10 @@ export class Remix extends DurableObject<Env> {
       pageSessionId,
     });
 
-    if (newAccessToken) {
+    if (sessionToken) {
       response.headers.append(
         "Set-Cookie",
-        `${ACCESS_TOKEN_COOKIE_KEY}=${newAccessToken}; HttpOnly; Secure; SameSite=Strict; Max-Age=900; Path=/`
+        `${SESSION_TOKEN_COOKIE_KEY}=${sessionToken}; HttpOnly; Secure; SameSite=Strict; Max-Age=900; Path=/`
       );
     }
     if (newRefreshToken) {
@@ -73,53 +136,5 @@ export class Remix extends DurableObject<Env> {
     }
 
     return response;
-  }
-
-  private getCookie(request: Request, name: string): string | undefined {
-    const cookieHeader = request.headers.get("Cookie");
-    if (cookieHeader) {
-      const cookies = cookieHeader
-        .split(";")
-        .map((cookie) => cookie.trim().split("="));
-      const cookie = cookies.find(([key]) => key === name);
-      return cookie ? cookie[1] : undefined;
-    }
-    return undefined;
-  }
-
-  private async verifyToken(token: string) {
-    try {
-      const verified = await jwtVerify(
-        token,
-        new TextEncoder().encode(this.env.SESSION_JWT_SECRET)
-      );
-      return verified.payload as { userId: string; sessionId: string };
-    } catch {
-      return null;
-    }
-  }
-
-  private async createAccessToken(userId: string, sessionId: string) {
-    return await new SignJWT({ userId, sessionId })
-      .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("15m")
-      .sign(new TextEncoder().encode(this.env.SESSION_JWT_SECRET));
-  }
-
-  private async createRefreshToken(userId: string) {
-    return await new SignJWT({ userId })
-      .setProtectedHeader({ alg: "HS256" })
-      .setExpirationTime("7d")
-      .sign(new TextEncoder().encode(this.env.SESSION_JWT_SECRET));
-  }
-
-  private async createNewUserSession(): Promise<
-    [string, string, string, string]
-  > {
-    const userId = crypto.randomUUID();
-    const sessionId = crypto.randomUUID();
-    const accessToken = await this.createAccessToken(userId, sessionId);
-    const refreshToken = await this.createRefreshToken(userId);
-    return [userId, sessionId, accessToken, refreshToken];
   }
 }

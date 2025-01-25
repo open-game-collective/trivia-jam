@@ -40,10 +40,10 @@ function calculateScores(
     return a.timeTaken - b.timeTaken;
   });
 
-  // For closest answer mode with no exact matches, only the closest answer gets points
+  // For closest answer mode with no exact matches, allow top 3 to score
   const scoringPositions = question.requireExactAnswer || exactMatches.length > 0
     ? Math.max(3, Math.floor(answers.length * 0.3))  // Normal scoring for exact matches
-    : 1;  // Only closest answer gets points when no exacts
+    : 3;  // Top 3 closest answers get points (3,2,1)
 
   // Group answers by position (handling ties)
   const positions = scoredAnswers.reduce<Array<typeof scoredAnswers>>((acc, answer) => {
@@ -291,21 +291,23 @@ export const gameMachine = setup({
           draft.currentQuestion.startTime
         );
 
-        // Update player scores
-        scores.forEach(score => {
-          const player = draft.players.find(p => p.id === score.playerId);
-          if (player) {
-            player.score += Math.round(score.points); // Round points for final scores
-          }
-        });
-
-        // Add to question results
-        draft.questionResults.push({
+        const questionResult = {
           questionId: draft.currentQuestion.questionId,
           questionNumber: draft.questionNumber,
           answers: draft.currentQuestion.answers,
           scores
+        };
+
+        // Update player scores
+        scores.forEach(score => {
+          const player = draft.players.find(p => p.id === score.playerId);
+          if (player) {
+            player.score += Math.round(score.points);
+          }
         });
+
+        // Add to question results history
+        draft.questionResults.push(questionResult);
 
         // Clear current question and increment counter
         draft.currentQuestion = null;
@@ -314,10 +316,9 @@ export const gameMachine = setup({
         // Check if game should end
         if (draft.questionNumber > draft.settings.questionCount) {
           draft.gameStatus = "finished";
-          // Find winner(s) - could be tied
           const maxScore = Math.max(...draft.players.map(p => p.score));
           const winners = draft.players.filter(p => p.score === maxScore);
-          draft.winner = winners[0].id; // For now just take first winner
+          draft.winner = winners[0].id;
         }
       }),
     })),
@@ -337,8 +338,8 @@ export const gameMachine = setup({
       winner: null,
       settings: {
         maxPlayers: 10,
-        questionCount: 10,
-        answerTimeWindow: 30,
+        questionCount: 50,
+        answerTimeWindow: 25,
       },
       questionNumber: 0,
       questions: {},
@@ -512,3 +513,27 @@ interface Player {
 }
 
 export type GameMachine = typeof gameMachine;
+
+export type GamePublicContext = {
+  id: string;
+  hostId: string;
+  hostName: string;
+  gameCode: string | undefined;
+  players: Player[];
+  currentQuestion: {
+    questionId: string;
+    startTime: number;
+    answers: Answer[];
+  } | null;
+  buzzerQueue: string[];
+  gameStatus: "lobby" | "active" | "finished";
+  winner: string | null;
+  settings: {
+    maxPlayers: number;
+    questionCount: number;
+    answerTimeWindow: number;
+  };
+  questionNumber: number;
+  questions: Record<string, Question>;
+  questionResults: QuestionResult[];
+};

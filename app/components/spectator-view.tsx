@@ -78,25 +78,63 @@ const useSoundEffects = () => {
   return playSound;
 };
 
+const QuestionProgress = ({ 
+  current, 
+  total 
+}: { 
+  current: number; 
+  total: number;
+}) => {
+  const progress = (current / total) * 100;
+  
+  return (
+    <div className="fixed top-0 left-0 right-0 p-4 z-50">
+      <div className="max-w-2xl mx-auto">
+        <div className="flex items-center gap-3">
+          <div className="flex-1 h-3 bg-gray-800/50 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-gradient-to-r from-indigo-500 to-purple-500"
+              initial={{ width: 0 }}
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.5 }}
+            />
+          </div>
+          <div className="text-sm font-medium text-white/70 tabular-nums">
+            {current} / {total}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export const SpectatorView = ({ host }: { host: string }) => {
   const gameState = GameContext.useSelector((state) => state);
-  const { gameStatus, currentQuestion, players, questionResults, questions } = gameState.public;
+  const { gameStatus, currentQuestion, players, questionResults, questions, settings, questionNumber } = gameState.public;
   const playSound = useSoundEffects();
   const prevQuestionRef = useRef<typeof currentQuestion>(null);
 
   // Update sound effect logic
   useEffect(() => {
-    const isSkip = prevQuestionRef.current && !currentQuestion;
-    const isNewQuestion = !prevQuestionRef.current && currentQuestion;
+    const isQuestionEnding = prevQuestionRef.current && !currentQuestion;
+    const isQuestionStarting = !prevQuestionRef.current && currentQuestion;
     
-    if (isSkip) {
-      playSound("SKIP");
-    } else if (isNewQuestion) {
+    if (isQuestionEnding && prevQuestionRef.current) {
+      // Check if any player got the exact answer
+      const question = gameState.public.questions[prevQuestionRef.current.questionId];
+      const hasCorrectAnswer = prevQuestionRef.current.answers.some(
+        answer => answer.value === question.correctAnswer
+      );
+      
+      // Play correct sound if someone got it right, incorrect sound if not
+      playSound(hasCorrectAnswer ? "CORRECT" : "INCORRECT");
+    } else if (isQuestionStarting) {
+      // Play start sound when new question appears
       playSound("QUESTION");
     }
     
     prevQuestionRef.current = currentQuestion;
-  }, [currentQuestion, playSound]);
+  }, [currentQuestion, playSound, gameState.public.questions]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -105,23 +143,32 @@ export const SpectatorView = ({ host }: { host: string }) => {
           <LobbyDisplay players={players} host={host} />
         )}
 
-        {gameStatus === "active" && currentQuestion && (
-          <GameplayDisplay
-            currentQuestion={currentQuestion}
-            players={players}
-          />
-        )}
+        {gameStatus === "active" && (
+          <>
+            <QuestionProgress 
+              current={questionNumber} 
+              total={settings.questionCount} 
+            />
+            
+            {currentQuestion && (
+              <GameplayDisplay
+                currentQuestion={currentQuestion}
+                players={players}
+              />
+            )}
 
-        {gameStatus === "active" && !currentQuestion && questionResults.length > 0 && (
-          <QuestionResultsDisplay
-            players={players}
-            questionResults={questionResults}
-            questions={questions}
-          />
-        )}
+            {!currentQuestion && questionResults.length > 0 && (
+              <QuestionResultsDisplay
+                players={players}
+                questionResults={questionResults}
+                questions={questions}
+              />
+            )}
 
-        {gameStatus === "active" && !currentQuestion && questionResults.length === 0 && (
-          <WaitingForQuestionDisplay players={players} />
+            {!currentQuestion && questionResults.length === 0 && (
+              <WaitingForQuestionDisplay players={players} />
+            )}
+          </>
         )}
 
         {gameStatus === "finished" && <GameFinishedDisplay players={players} />}
@@ -345,18 +392,31 @@ const GameplayDisplay = ({
   players: Array<{ id: string; name: string; score: number }>;
 }) => {
   const gameState = GameContext.useSelector((state) => state.public);
+  const [remainingTime, setRemainingTime] = useState(gameState.settings.answerTimeWindow);
   
+  // Add useEffect to update the timer
+  useEffect(() => {
+    if (!currentQuestion) return;
+
+    const updateTimer = () => {
+      const elapsed = (Date.now() - currentQuestion.startTime) / 1000;
+      const remaining = Math.max(0, Math.ceil(gameState.settings.answerTimeWindow - elapsed));
+      setRemainingTime(remaining);
+    };
+
+    // Update immediately
+    updateTimer();
+
+    // Set up interval to update every 100ms
+    const interval = setInterval(updateTimer, 100);
+
+    return () => clearInterval(interval);
+  }, [currentQuestion, gameState.settings.answerTimeWindow]);
+
   // Get question text from questions collection
   const questionText = currentQuestion 
     ? gameState.questions[currentQuestion.questionId]?.text 
     : null;
-
-  // Calculate remaining time
-  const remainingTime = currentQuestion 
-    ? Math.max(0, Math.ceil(
-        (currentQuestion.startTime + (gameState.settings.answerTimeWindow * 1000) - Date.now()) / 1000
-      ))
-    : 0;
 
   // Create a map of all players with their answers (or null if not answered)
   const playerAnswers = players.reduce<Record<string, Answer | null>>((acc, player) => {
@@ -375,7 +435,7 @@ const GameplayDisplay = ({
   });
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 relative">
+    <div className="min-h-screen flex flex-col items-center justify-center pt-16 p-8 relative">
       {/* Background Animation */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -593,8 +653,11 @@ const QuestionResultsDisplay = ({
 
   if (!latestResult || !question) return null;
 
+  // Sort scores by position (ascending) since position already accounts for points and time
+  const sortedScores = [...latestResult.scores].sort((a, b) => a.position - b.position);
+
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 relative">
+    <div className="min-h-screen flex flex-col items-center justify-center pt-16 p-8 relative">
       {/* Background Animation */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -633,40 +696,58 @@ const QuestionResultsDisplay = ({
           {/* Results */}
           <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50">
             <h2 className="text-2xl font-bold text-indigo-300 mb-6">Results</h2>
-            <div className="space-y-4">
-              {latestResult.scores.map((score: { 
-                playerId: string;
-                playerName: string;
-                points: number;
-                position: number;
-                timeTaken: number;
-              }) => (
-                <motion.div
-                  key={score.playerId}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  data-testid={`player-result-${score.playerId}`}
-                  className="bg-gray-900/50 rounded-xl p-4 flex justify-between items-center border border-gray-700/50"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="text-2xl font-bold text-indigo-400">
-                      #{score.position}
-                    </div>
-                    <div>
-                      <div className="text-xl font-medium text-white/90">
-                        {score.playerName}
+            
+            {latestResult.answers.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-center py-8"
+              >
+                <div className="text-4xl mb-4">😴</div>
+                <div className="text-xl text-white/70">
+                  No one answered this question
+                </div>
+              </motion.div>
+            ) : (
+              <div className="space-y-4">
+                {sortedScores.map((score) => {
+                  const answer = latestResult.answers.find(a => a.playerId === score.playerId);
+                  if (!answer) return null;
+
+                  const isExact = answer.value === question.correctAnswer;
+                  const isClose = Math.abs(
+                    answer.value - question.correctAnswer
+                  ) / question.correctAnswer < 0.1; // Within 10%
+
+                  return (
+                    <motion.div
+                      key={answer.playerId}
+                      data-testid={`player-result-${answer.playerId}`}
+                      className={`${
+                        score && score.points > 0 ? 'bg-green-500/10 border border-green-500/30' : 
+                        isClose ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                        'bg-gray-900/50'
+                      } rounded-2xl p-6 flex items-center gap-6`}
+                    >
+                      <div className="text-2xl font-bold text-indigo-400 w-12 text-center">
+                        {score && score.points > 0 ? `#${score.position}` : "―"}
                       </div>
-                      <div className="text-sm text-white/60">
-                        {score.timeTaken.toFixed(1)}s
+                      <div className="flex-1">
+                        <div className="text-xl font-medium">{answer.playerName}</div>
+                        <div className="text-sm text-gray-400">
+                          {answer.value} • {score.timeTaken.toFixed(1)}s
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold text-indigo-400">
-                    {score.points} points
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                      {score.points > 0 && (
+                        <div className="text-2xl font-bold text-indigo-400">
+                          {score.points} <span className="text-indigo-400/70">pts</span>
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </motion.div>
       </div>

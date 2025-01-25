@@ -26,23 +26,7 @@ export const defaultGameSnapshot = {
       correctAnswer: number;
       requireExactAnswer: boolean;
     }>,
-    questionResults: [] as Array<{
-      questionId: string;
-      questionNumber: number;
-      answers: Array<{
-        playerId: string;
-        playerName: string;
-        value: number;
-        timestamp: number;
-      }>;
-      scores: Array<{
-        playerId: string;
-        playerName: string;
-        points: number;
-        position: number;
-        timeTaken: number;
-      }>;
-    }>,
+    questionResults: [],
     questionNumber: 0,
   },
   private: {},

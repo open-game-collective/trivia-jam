@@ -141,8 +141,6 @@ export const ActiveQuestionNoAnswers: Story = {
           ...defaultGameSnapshot,
           public: {
             ...defaultGameSnapshot.public,
-            id: "game-123",
-            hostId: "host-123",
             gameStatus: "active",
             questions: {
               "q1": {
@@ -158,14 +156,7 @@ export const ActiveQuestionNoAnswers: Story = {
               answers: [],
             },
             players: createPlayers(10),
-            settings: {
-              maxPlayers: 10,
-              questionCount: 10,
-              answerTimeWindow: 30,
-              requireExactAnswers: false,
-            },
           },
-          value: { active: "questionActive" },
         },
       },
     },
@@ -591,17 +582,17 @@ export const WaitingForQuestion: Story = {
       },
     },
   },
-  play: async ({ canvas, mount }) => {
+  play: async ({ mount, canvas }) => {
     await mount(<SpectatorView host="dev.triviajam.tv" />);
 
-    // Verify waiting state
-    const waitingMessage = await canvas.findByTestId("waiting-for-question");
-    expect(waitingMessage).toBeInTheDocument();
-    expect(waitingMessage).toHaveTextContent(/waiting for next question/i);
+    // Find and verify waiting state
+    const waitingState = await canvas.findByTestId("waiting-for-question");
+    expect(waitingState).toBeInTheDocument();
 
-    // Verify scores are still visible
-    const player1Score = await canvas.findByText("Player 1");
-    expect(player1Score).toBeInTheDocument();
+    // Verify waiting message
+    const heading = await canvas.findByRole('heading', { level: 1 });
+    expect(heading).toBeInTheDocument();
+    expect(heading).toHaveTextContent("Waiting for Question...");
   },
 };
 

@@ -7,6 +7,17 @@ import { SessionContext } from "~/session.context";
 import { atom } from "nanostores";
 import { useStore } from "@nanostores/react";
 import { HelpModal } from "./help-modal";
+import { QuestionProgress } from "./question-progress";
+
+const focusInput = (inputId: string) => {
+  setTimeout(() => {
+    const input = document.getElementById(inputId);
+    if (input) {
+      input.focus();
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }, 100);
+};
 
 export const PlayerView = () => {
   const gameState = GameContext.useSelector((state) => state);
@@ -51,6 +62,12 @@ export const PlayerView = () => {
     return () => clearInterval(timer);
   }, [currentQuestion, settings.answerTimeWindow]);
 
+  useEffect(() => {
+    if (currentQuestion && !hasAnswered) {
+      focusInput('answer');
+    }
+  }, [currentQuestion, hasAnswered]);
+
   const handleSubmitAnswer = () => {
     if (!currentQuestion || hasAnswered || !answerInput) return;
 
@@ -81,122 +98,141 @@ export const PlayerView = () => {
       <AnimatePresence mode="wait">
         {gameStatus === "lobby" && <LobbyDisplay player={player} />}
 
-        {gameStatus === "active" && !currentQuestion && questionResults.length > 0 && (
-          <QuestionResultsDisplay
-            player={player}
-            questions={questions}
-            questionResults={questionResults}
-          />
-        )}
+        {gameStatus === "active" && (
+          <>
+            <QuestionProgress 
+              current={gameState.public.questionNumber} 
+              total={gameState.public.settings.questionCount} 
+            />
+            
+            {!currentQuestion && questionResults.length > 0 && (
+              <QuestionResultsDisplay
+                player={player}
+                questions={questions}
+                questionResults={questionResults}
+              />
+            )}
 
-        {gameStatus === "active" && !currentQuestion && questionResults.length === 0 && (
-          <WaitingDisplay player={player} />
-        )}
+            {!currentQuestion && questionResults.length === 0 && (
+              <WaitingDisplay player={player} />
+            )}
 
-        {gameStatus === "active" && currentQuestion && (
-          <div className="min-h-screen flex flex-col items-center justify-center p-8 relative">
-            {/* Background Animation */}
-            <div className="absolute inset-0 overflow-hidden">
-              <div className="absolute inset-0 opacity-10">
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
-                  animate={{
-                    rotate: [0, 360],
-                    scale: [1, 1.2, 1],
-                  }}
-                  transition={{
-                    duration: 20,
-                    repeat: Infinity,
-                    ease: "linear",
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Main Content */}
-            <div className="relative z-10 w-full max-w-xl">
-              {/* Timer */}
-              <motion.div
-                className="text-7xl font-bold text-center text-indigo-400 mb-8"
-                data-testid="question-timer"
-                animate={{
-                  scale: timeLeft <= 5 ? [1, 1.1, 1] : 1,
-                  color: timeLeft <= 5 ? ["#818CF8", "#EF4444", "#818CF8"] : "#818CF8",
-                }}
-                transition={{
-                  duration: 1,
-                  repeat: timeLeft <= 5 ? Infinity : 0,
-                }}
-              >
-                {timeLeft}s
-              </motion.div>
-
-              {/* Question */}
-              <div className="text-center mb-8">
-                <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-                  {questions[currentQuestion.questionId].text}
-                </h1>
-              </div>
-
-              {/* Answer Input */}
-              {!hasAnswered ? (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="space-y-4"
-                >
-                  <div>
-                    <label htmlFor="answer" className="block text-lg font-medium text-indigo-300 mb-2">
-                      Your Answer
-                    </label>
-                    <input
-                      id="answer"
-                      type="number"
-                      value={answerInput}
-                      onChange={(e) => setAnswerInput(e.target.value)}
-                      className="w-full bg-gray-800/50 rounded-xl p-4 text-white text-xl"
-                      placeholder="Enter your answer..."
-                      step="any"
+            {currentQuestion && (
+              <div className="min-h-screen flex flex-col items-center justify-center pt-16 p-8 relative">
+                {/* Background Animation */}
+                <div className="absolute inset-0 overflow-hidden">
+                  <div className="absolute inset-0 opacity-10">
+                    <motion.div
+                      className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+                      animate={{
+                        rotate: [0, 360],
+                        scale: [1, 1.2, 1],
+                      }}
+                      transition={{
+                        duration: 20,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
                     />
                   </div>
-                  <motion.button
-                    onClick={handleSubmitAnswer}
-                    disabled={isSubmitting || !answerInput}
-                    className={`w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
-                      ${!isSubmitting && answerInput ? "hover:from-indigo-500 hover:to-purple-500" : "opacity-50 cursor-not-allowed"}`}
-                    whileHover={!isSubmitting && answerInput ? { scale: 1.02 } : {}}
-                    whileTap={!isSubmitting && answerInput ? { scale: 0.98 } : {}}
+                </div>
+
+                {/* Main Content */}
+                <div className="relative z-10 w-full max-w-xl">
+                  {/* Timer */}
+                  <motion.div
+                    className="text-7xl font-bold text-center text-indigo-400 mb-8"
+                    data-testid="question-timer"
+                    animate={{
+                      scale: timeLeft <= 5 ? [1, 1.1, 1] : 1,
+                      color: timeLeft <= 5 ? ["#818CF8", "#EF4444", "#818CF8"] : "#818CF8",
+                    }}
+                    transition={{
+                      duration: 1,
+                      repeat: timeLeft <= 5 ? Infinity : 0,
+                    }}
                   >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Submitting...
-                      </>
-                    ) : (
-                      "Submit Answer"
-                    )}
-                  </motion.button>
-                </motion.div>
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="text-center"
-                  data-testid="answer-submitted"
-                >
-                  <div className="text-2xl font-bold text-indigo-400 mb-2">
-                    Answer Submitted!
+                    {timeLeft}s
+                  </motion.div>
+
+                  {/* Question */}
+                  <div className="text-center mb-8">
+                    <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+                      {questions[currentQuestion.questionId].text}
+                    </h1>
                   </div>
-                  <div className="text-4xl font-bold text-white mb-4">
-            {currentQuestion.answers.find(a => a.playerId === sessionState.userId)?.value}
-          </div>
-          <div className="text-xl text-white/60">
-            {((currentQuestion.answers.find(a => a.playerId === sessionState.userId)?.timestamp || 0) - currentQuestion.startTime) / 1000}s
-          </div>
-                </motion.div>
-              )}
-            </div>
-          </div>
+
+                  {/* Answer Input */}
+                  {!hasAnswered ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-4"
+                    >
+                      <div>
+                        <label htmlFor="answer" className="block text-lg font-medium text-indigo-300 mb-2">
+                          Your Answer
+                        </label>
+                        <input
+                          id="answer"
+                          type="tel"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={answerInput}
+                          onChange={(e) => {
+                            const value = e.target.value.replace(/[^\d.-]/g, '');
+                            setAnswerInput(value);
+                          }}
+                          className="w-full bg-gray-800/50 rounded-xl p-4 text-white text-xl"
+                          placeholder="Enter your answer..."
+                          autoComplete="off"
+                          ref={(input) => {
+                            if (input && !hasAnswered) {
+                              focusInput('answer');
+                            }
+                          }}
+                        />
+                      </div>
+                      <motion.button
+                        onClick={handleSubmitAnswer}
+                        disabled={isSubmitting || !answerInput}
+                        className={`w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
+                          ${!isSubmitting && answerInput ? "hover:from-indigo-500 hover:to-purple-500" : "opacity-50 cursor-not-allowed"}`}
+                        whileHover={!isSubmitting && answerInput ? { scale: 1.02 } : {}}
+                        whileTap={!isSubmitting && answerInput ? { scale: 0.98 } : {}}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                            Submitting...
+                          </>
+                        ) : (
+                          "Submit Answer"
+                        )}
+                      </motion.button>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="text-center"
+                      data-testid="answer-submitted"
+                    >
+                      <div className="text-2xl font-bold text-indigo-400 mb-2">
+                        Answer Submitted!
+                      </div>
+                      <div className="text-4xl font-bold text-white mb-4">
+                        {currentQuestion.answers.find(a => a.playerId === sessionState.userId)?.value}
+                      </div>
+                      <div className="text-xl text-white/60">
+                        {((currentQuestion.answers.find(a => a.playerId === sessionState.userId)?.timestamp || 0) - currentQuestion.startTime) / 1000}s
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {gameStatus === "finished" && <GameFinishedDisplay player={player} />}
@@ -522,97 +558,88 @@ const QuestionResultsDisplay = ({
 
   // Sort by points first, then by time for equal points
   const sortedScores = [...latestResult.scores].sort((a, b) => {
-    // First sort by points (descending)
-    if (b.points !== a.points) {
-      return b.points - a.points;
-    }
-    // Then by time (ascending) for equal points
+    if (b.points !== a.points) return b.points - a.points;
     return a.timeTaken - b.timeTaken;
   });
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-8 relative">
-      {/* Background Animation */}
+    <div className="min-h-screen flex flex-col items-center pt-16 p-4 relative">
+      {/* Background gradient */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 opacity-10">
           <motion.div
             className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
             animate={{
-              rotate: [0, 360],
-              scale: [1, 1.2, 1],
+              scale: [1, 1.02],
+              rotate: [0, 18],
             }}
             transition={{
-              duration: 20,
+              duration: 10,
               repeat: Infinity,
-              ease: "linear",
+              repeatType: "reverse",
             }}
           />
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="relative z-10 w-full max-w-xl">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
+      {/* Content */}
+      <div className="relative z-10 w-full max-w-4xl mx-auto">
+        <motion.div 
+          className="mb-8"
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center"
         >
-          {/* Question & Answer */}
-          <div className="mb-12">
-            <h1 className="text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-6">
+          {/* Question and Answer */}
+          <div className="text-center mb-12">
+            <h1 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-6">
               {question.text}
             </h1>
-            <div className="text-4xl font-bold text-green-400" data-testid="correct-answer">
+            <div className="text-5xl font-bold text-green-400" data-testid="correct-answer">
               {question.correctAnswer}
             </div>
           </div>
 
-          {/* Results List */}
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-6 border border-gray-700/50">
-            <h2 className="text-2xl font-bold text-indigo-300 mb-4">Results</h2>
-            <div className="space-y-2">
+          {/* Results */}
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/50">
+            <h2 className="text-3xl font-bold text-indigo-300 mb-6">Results</h2>
+            <div className="space-y-4">
               {sortedScores.map((score) => {
                 const answer = latestResult.answers.find(a => a.playerId === score.playerId);
                 if (!answer) return null;
 
                 const isCurrentPlayer = score.playerId === player.id;
                 const isExact = answer.value === question.correctAnswer;
+                const isClose = Math.abs(
+                  answer.value - question.correctAnswer
+                ) / question.correctAnswer < 0.1; // Within 10%
 
                 return (
-                  <motion.div
-                    key={score.playerId}
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    data-testid={`player-result-${score.playerId}`}
-                    className={`bg-gray-900/50 rounded-xl p-4 grid grid-cols-[48px_1fr_96px] items-center ${
+                  <div
+                    key={answer.playerId}
+                    data-testid={`player-result-${answer.playerId}`}
+                    className={`${
+                      score && score.points > 0 ? 'bg-green-500/10 border border-green-500/30' : 
+                      isClose ? 'bg-yellow-500/10 border border-yellow-500/30' :
+                      'bg-gray-900/50'
+                    } rounded-2xl p-6 flex items-center gap-6 ${
                       isCurrentPlayer ? 'bg-indigo-500/10' : ''
                     }`}
                   >
-                    <div className="text-xl font-bold text-indigo-400">
-                      #{score.position}
+                    <div className="text-2xl font-bold text-indigo-400 w-12 text-center">
+                      {score && score.points > 0 ? `#${score.position}` : "―"}
                     </div>
-                    
-                    <div className="flex flex-col items-center min-w-0">
-                      <div className="text-lg font-medium text-white/90">
-                        {score.playerName}
-                      </div>
-                      <div className="flex items-center gap-2 text-sm text-white/60">
-                        <span className={isExact ? 'text-green-400' : 'text-white/90'}>
-                          {answer.value}
-                        </span>
-                        <span className="text-white/40">•</span>
-                        <span>{score.timeTaken.toFixed(1)}s</span>
+                    <div className="flex-1">
+                      <div className="text-xl font-medium">{answer.playerName}</div>
+                      <div className="text-sm text-gray-400">
+                        {answer.value} • {score.timeTaken.toFixed(1)}s
                       </div>
                     </div>
-
-                    <div className="text-right">
-                      {score.points > 0 && (
-                        <div className="text-xl font-bold text-indigo-400">
-                          {score.points} <span className="text-indigo-400/70">pts</span>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
+                    {score.points > 0 && (
+                      <div className="text-2xl font-bold text-indigo-400">
+                        {score.points} <span className="text-indigo-400/70">pts</span>
+                      </div>
+                    )}
+                  </div>
                 );
               })}
             </div>
