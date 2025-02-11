@@ -1,11 +1,9 @@
 import { json, type LoaderFunctionArgs } from "@remix-run/cloudflare";
 import { useLoaderData, useParams } from "@remix-run/react";
 import { createAccessToken, createActorFetch } from "actor-kit/server";
-import { HostView } from "~/components/host-view";
-import { PlayerView } from "~/components/player-view";
+import { SpectatorView } from "~/components/spectator-view";
 import type { gameMachine } from "~/game.machine";
-import { SessionContext } from "~/session.context";
-import { GameProvider } from "../game.context";
+import { GameProvider } from "~/game.context";
 
 export async function loader({ request, params, context }: LoaderFunctionArgs) {
   const fetchGame = createActorFetch<typeof gameMachine>({
@@ -33,11 +31,9 @@ export async function loader({ request, params, context }: LoaderFunctionArgs) {
   });
 }
 
-export default function GameRoute() {
+export default function SpectateRoute() {
   const gameId = useParams().gameId!;
   const { host, accessToken, payload } = useLoaderData<typeof loader>();
-  const hostId = payload.snapshot.public.hostId;
-  const userId = SessionContext.useSelector((state) => state.public.userId);
 
   return (
     <GameProvider
@@ -47,7 +43,7 @@ export default function GameRoute() {
       checksum={payload.checksum}
       initialSnapshot={payload.snapshot}
     >
-      {hostId === userId ? <HostView host={host} /> : <PlayerView />}
+      <SpectatorView host={host} />
     </GameProvider>
   );
-}
+} 
