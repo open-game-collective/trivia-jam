@@ -29,13 +29,21 @@ function calculateScores(
       (a.timestamp - startTime) - (b.timestamp - startTime)
     );
 
-    // Award points based on position (3 for first, 2 for second, 1 for third)
+    // Award points based on position (4 for first, 3 for second, 2 for third, 1 for all other correct answers)
     return validAnswers.map(answer => {
+      const isCorrect = answer.value === question.correctAnswer;
       const position = sortedAnswers.findIndex(a => a.playerId === answer.playerId) + 1;
+      let points = 0;
+      
+      if (isCorrect) {
+        // If correct, get at least 1 point, more for being faster
+        points = position <= 3 ? 5 - position : 1;
+      }
+
       return {
         playerId: answer.playerId,
         playerName: answer.playerName,
-        points: position > 0 && position <= 3 ? 4 - position : 0,
+        points,
         position: position > 0 ? position : sortedAnswers.length + 1,
         timeTaken: (answer.timestamp - startTime) / 1000
       };
