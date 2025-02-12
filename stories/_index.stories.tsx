@@ -71,7 +71,8 @@ const meta: Meta<typeof Index> = {
 
 export default meta;
 
-export const HomepageView: Story = {
+// Display Stories
+export const DefaultView: Story = {
   parameters: {
     remix: {
       initialPath: "/",
@@ -88,9 +89,8 @@ export const HomepageView: Story = {
   },
 };
 
-// Commenting out join game related stories
-/*
-export const MobileWithGameCode: Story = {
+// Interactive Test Stories
+export const TestJoinWithCode: Story = {
   parameters: {
     remix: {
       initialPath: "/?code=ABC123",
@@ -112,7 +112,7 @@ export const MobileWithGameCode: Story = {
   },
 };
 
-export const JoinGameInteraction: Story = {
+export const TestJoinGameFlow: Story = {
   decorators: [
     (Story) => {
       const client = createActorKitMockClient<SessionMachine>({
@@ -179,4 +179,3 @@ export const JoinGameInteraction: Story = {
     });
   },
 };
-*/

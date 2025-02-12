@@ -36,36 +36,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof HostView>;
 
-export const Docs: Story = {
-  parameters: {
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "host-123",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            hostId: "host-123",
-            players: [
-              { id: "player-1", name: "Player 1", score: 0 },
-              { id: "player-2", name: "Player 2", score: 0 },
-            ],
-          },
-        },
-      },
-    },
-  },
-};
-
-export const InLobby: Story = {
+// Display Stories
+export const LobbyView: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -90,8 +62,579 @@ export const InLobby: Story = {
             questions: {},
             questionResults: [],
             settings: {
-              maxPlayers: 10,
-              questionCount: 10,
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { lobby: "ready" } as const,
+        },
+      },
+    },
+  },
+};
+
+export const ActiveQuestion: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            id: "game-123",
+            hostId: "host-123",
+            gameStatus: "active",
+            questionNumber: 1,
+            players: [
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "What year was the Declaration of Independence signed?",
+                correctAnswer: 1776,
+                questionType: "numeric"
+              },
+            },
+            currentQuestion: {
+              questionId: "q1",
+              startTime: Date.now() - 5000, // Started 5 seconds ago
+              answers: [],
+            },
+            settings: {
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { active: "questionActive" },
+        },
+      },
+    },
+  },
+};
+
+export const QuestionWithAnswers: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            id: "game-123",
+            hostId: "host-123",
+            gameStatus: "active",
+            questionNumber: 1,
+            players: [
+              { id: "player-1", name: "Player 1", score: 3 },
+              { id: "player-2", name: "Player 2", score: 2 },
+              { id: "player-3", name: "Player 3", score: 0 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "What year was the Declaration of Independence signed?",
+                correctAnswer: 1776,
+                questionType: "numeric"
+              },
+              "q2": {
+                id: "q2",
+                text: "How many bones are in the human body?",
+                correctAnswer: 206,
+                questionType: "numeric"
+              },
+              "q3": {
+                id: "q3",
+                text: "What is the speed of light (in km/s)?",
+                correctAnswer: 299792,
+                questionType: "numeric"
+              }
+            },
+            currentQuestion: null,
+            questionResults: [{
+              questionId: "q1",
+              questionNumber: 1,
+              answers: [
+                {
+                  playerId: "player-1",
+                  playerName: "Player 1",
+                  value: 1776,
+                  timestamp: Date.now() - 8000,
+                },
+                {
+                  playerId: "player-2",
+                  playerName: "Player 2",
+                  value: 1775,
+                  timestamp: Date.now() - 5000,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  value: 1770,
+                  timestamp: Date.now() - 3000,
+                },
+              ],
+              scores: [
+                {
+                  playerId: "player-1",
+                  playerName: "Player 1",
+                  points: 3,
+                  position: 1,
+                  timeTaken: 8,
+                },
+                {
+                  playerId: "player-2",
+                  playerName: "Player 2",
+                  points: 2,
+                  position: 2,
+                  timeTaken: 5,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  points: 0,
+                  position: 3,
+                  timeTaken: 3,
+                },
+              ],
+            }],
+            settings: {
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { active: "questionActive" },
+        },
+      },
+    },
+  },
+};
+
+export const QuestionResults: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            id: "game-123",
+            hostId: "host-123",
+            gameStatus: "active",
+            questionNumber: 1,
+            players: [
+              { id: "player-1", name: "Player 1", score: 3 },
+              { id: "player-2", name: "Player 2", score: 2 },
+              { id: "player-3", name: "Player 3", score: 0 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "What year was the Declaration of Independence signed?",
+                correctAnswer: 1776,
+                questionType: "numeric"
+              },
+              "q2": {
+                id: "q2",
+                text: "How many bones are in the human body?",
+                correctAnswer: 206,
+                questionType: "numeric"
+              },
+              "q3": {
+                id: "q3",
+                text: "What is the speed of light (in km/s)?",
+                correctAnswer: 299792,
+                questionType: "numeric"
+              }
+            },
+            currentQuestion: null,
+            questionResults: [{
+              questionId: "q1",
+              questionNumber: 1,
+              answers: [
+                {
+                  playerId: "player-1",
+                  playerName: "Player 1",
+                  value: 1776,
+                  timestamp: Date.now() - 8000,
+                },
+                {
+                  playerId: "player-2",
+                  playerName: "Player 2",
+                  value: 1775,
+                  timestamp: Date.now() - 5000,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  value: 1770,
+                  timestamp: Date.now() - 3000,
+                },
+              ],
+              scores: [
+                {
+                  playerId: "player-1",
+                  playerName: "Player 1",
+                  points: 3,
+                  position: 1,
+                  timeTaken: 8,
+                },
+                {
+                  playerId: "player-2",
+                  playerName: "Player 2",
+                  points: 2,
+                  position: 2,
+                  timeTaken: 5,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  points: 0,
+                  position: 3,
+                  timeTaken: 3,
+                },
+              ],
+            }],
+            settings: {
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { active: "questionPrep" },
+        },
+      },
+    },
+  },
+  play: async ({ canvas, mount }) => {
+    const gameClient = createActorKitMockClient<GameMachine>({
+      initialSnapshot: {
+        ...defaultGameSnapshot,
+        public: {
+          ...defaultGameSnapshot.public,
+          id: "game-123",
+          hostId: "host-123",
+          gameStatus: "active",
+          questionNumber: 1,
+          settings: {
+            maxPlayers: 20,
+            answerTimeWindow: 30,
+          },
+          players: [
+            { id: "player-1", name: "Player 1", score: 3 },
+            { id: "player-2", name: "Player 2", score: 2 },
+            { id: "player-3", name: "Player 3", score: 0 },
+          ],
+          questions: {
+            "q1": {
+              id: "q1",
+              text: "What year was the Declaration of Independence signed?",
+              correctAnswer: 1776,
+              questionType: "numeric"
+            },
+            "q2": {
+              id: "q2",
+              text: "How many bones are in the human body?",
+              correctAnswer: 206,
+              questionType: "numeric"
+            },
+            "q3": {
+              id: "q3",
+              text: "What is the speed of light (in km/s)?",
+              correctAnswer: 299792,
+              questionType: "numeric"
+            }
+          },
+          currentQuestion: null,
+          questionResults: [{
+            questionId: "q1",
+            questionNumber: 1,
+            answers: [
+              {
+                playerId: "player-1",
+                playerName: "Player 1",
+                value: 1776,
+                timestamp: Date.now() - 8000,
+              },
+              {
+                playerId: "player-2",
+                playerName: "Player 2",
+                value: 1775,
+                timestamp: Date.now() - 5000,
+              },
+              {
+                playerId: "player-3",
+                playerName: "Player 3",
+                value: 1770,
+                timestamp: Date.now() - 3000,
+              },
+            ],
+            scores: [
+              {
+                playerId: "player-1",
+                playerName: "Player 1",
+                points: 3,
+                position: 1,
+                timeTaken: 8,
+              },
+              {
+                playerId: "player-2",
+                playerName: "Player 2",
+                points: 2,
+                position: 2,
+                timeTaken: 5,
+              },
+              {
+                playerId: "player-3",
+                playerName: "Player 3",
+                points: 0,
+                position: 3,
+                timeTaken: 3,
+              },
+            ],
+          }],
+        },
+        value: { active: "questionPrep" },
+      },
+    });
+
+    await mount(
+      <GameContext.ProviderFromClient client={gameClient}>
+        <HostView host="dev.triviajam.tv" />
+      </GameContext.ProviderFromClient>
+    );
+
+    // Wait for the component to render
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Verify the next question button is shown (since it's not the last question)
+    const nextButton = await canvas.findByRole("button", { name: /start next question/i });
+    expect(nextButton).toBeInTheDocument();
+    expect(nextButton).toBeEnabled();
+  },
+};
+
+export const GameFinished: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            id: "game-123",
+            hostId: "host-123",
+            gameStatus: "finished",
+            winner: "player-1",
+            players: [
+              { id: "player-1", name: "Player 1", score: 3 },
+              { id: "player-2", name: "Player 2", score: 1 },
+            ],
+            questions: {},
+            questionResults: [],
+            settings: {
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: "finished",
+        },
+      },
+    },
+  },
+};
+
+export const ParsedQuestions: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            hostId: "host-123",
+            players: [
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "How many bones in human body?",
+                correctAnswer: 206,
+                questionType: "numeric"
+              },
+              "q2": {
+                id: "q2",
+                text: "How many floors in Empire State Building?",
+                correctAnswer: 102,
+                questionType: "numeric"
+              },
+              "q3": {
+                id: "q3",
+                text: "How many grapes per wine bottle?",
+                correctAnswer: 700,
+                questionType: "numeric"
+              },
+              "q4": {
+                id: "q4",
+                text: "What major canal opened in 1914?",
+                correctAnswer: "Panama Canal",
+                questionType: "multiple-choice",
+                options: ["Suez Canal", "Panama Canal", "Erie Canal", "English Channel"]
+              },
+              "q5": {
+                id: "q5",
+                text: "What is the capital of France?",
+                correctAnswer: "Paris",
+                questionType: "multiple-choice",
+                options: ["London", "Berlin", "Paris", "Madrid"]
+              },
+              "q6": {
+                id: "q6",
+                text: "What is the largest planet in our solar system?",
+                correctAnswer: "Jupiter",
+                questionType: "multiple-choice",
+                options: ["Mars", "Venus", "Saturn", "Jupiter"]
+              }
+            },
+            questionResults: [],
+            settings: {
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { lobby: "ready" } as const,
+        },
+      },
+    },
+  },
+  args: {
+    host: "dev.triviajam.tv",
+    initialDocumentContent: `How many bones in human body?
+206
+
+How many floors in Empire State Building?
+102
+
+How many grapes per wine bottle?
+700
+
+What major canal opened in 1914?
+a) Suez Canal b) Panama Canal c) Erie Canal d) English Channel
+Correct answer: B
+
+What is the capital of France?
+a) London b) Berlin c) Paris d) Madrid
+Correct answer: C
+
+What is the largest planet in our solar system?
+a) Mars b) Venus c) Saturn d) Jupiter
+Correct answer: D`
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // Verify the questions are displayed
+    const questions = await canvas.findAllByTestId(/^parsed-question-/);
+    expect(questions).toHaveLength(6);
+
+    // Verify the first question content
+    const firstQuestion = questions[0];
+    expect(firstQuestion).toHaveTextContent("How many bones in human body?");
+    expect(firstQuestion).toHaveTextContent("206");
+
+    // Verify start game button is enabled
+    const startButton = await canvas.findByRole("button", { name: /start game/i });
+    expect(startButton).toBeEnabled();
+  }
+};
+
+// Interactive Test Stories
+export const TestLobbyInteractions: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            hostId: "host-123",
+            players: [
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "How many bones in human body?",
+                correctAnswer: 206,
+                questionType: "numeric"
+              },
+              "q2": {
+                id: "q2",
+                text: "How many floors in Empire State Building?",
+                correctAnswer: 102,
+                questionType: "numeric"
+              }
+            },
+            questionResults: [],
+            settings: {
+              maxPlayers: 20,
               answerTimeWindow: 30,
             },
           },
@@ -112,11 +655,23 @@ export const InLobby: Story = {
             { id: "player-1", name: "Player 1", score: 0 },
             { id: "player-2", name: "Player 2", score: 0 },
           ],
-          questions: {},
+          questions: {
+            "q1": {
+              id: "q1",
+              text: "How many bones in human body?",
+              correctAnswer: 206,
+              questionType: "numeric"
+            },
+            "q2": {
+              id: "q2",
+              text: "How many floors in Empire State Building?",
+              correctAnswer: 102,
+              questionType: "numeric"
+            }
+          },
           questionResults: [],
           settings: {
-            maxPlayers: 10,
-            questionCount: 10,
+            maxPlayers: 20,
             answerTimeWindow: 30,
           },
         },
@@ -174,7 +729,272 @@ export const InLobby: Story = {
   },
 };
 
-export const QuestionControls: Story = {
+export const TestDocumentImport: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            hostId: "host-123",
+            players: [
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+            questions: {},
+            questionResults: [],
+            settings: {
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { lobby: "ready" } as const,
+        },
+      },
+    },
+  },
+  play: async ({ canvas, mount, step }) => {
+    const gameClient = createActorKitMockClient<GameMachine>({
+      initialSnapshot: {
+        ...defaultGameSnapshot,
+        public: {
+          ...defaultGameSnapshot.public,
+          hostId: "host-123",
+          players: [
+            { id: "player-1", name: "Player 1", score: 0 },
+            { id: "player-2", name: "Player 2", score: 0 },
+          ],
+          questions: {},
+          questionResults: [],
+          settings: {
+            maxPlayers: 20,
+            answerTimeWindow: 30,
+          }
+        },
+        value: { lobby: "ready" } as const,
+      }
+    });
+
+    let mounted = true;
+    
+    // Mock the send method
+    gameClient.send = async (event) => {
+      if (!mounted) return Promise.resolve();
+      
+      if (event.type === "PARSE_QUESTIONS") {
+        // First update - transition to loading
+        gameClient.produce((draft) => {
+          draft.value = { lobby: "parsingDocument" } as const;
+        });
+
+        // Simulate parsing delay
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // Only proceed if still mounted
+        if (!mounted) return Promise.resolve();
+
+        // Second update - add parsed questions and return to ready state
+        const questions = {
+          "q1": {
+            id: "q1",
+            text: "How many bones in human body?",
+            correctAnswer: 206,
+            questionType: "numeric" as const
+          },
+          "q2": {
+            id: "q2",
+            text: "How many floors in Empire State Building?",
+            correctAnswer: 102,
+            questionType: "numeric" as const
+          },
+          "q3": {
+            id: "q3",
+            text: "How many grapes per wine bottle?",
+            correctAnswer: 700,
+            questionType: "numeric" as const
+          },
+          "q4": {
+            id: "q4",
+            text: "What major canal opened in 1914?",
+            correctAnswer: "Panama Canal",
+            questionType: "multiple-choice" as const,
+            options: ["Suez Canal", "Panama Canal", "Erie Canal", "English Channel"]
+          },
+          "q5": {
+            id: "q5",
+            text: "What is the capital of France?",
+            correctAnswer: "Paris",
+            questionType: "multiple-choice" as const,
+            options: ["London", "Berlin", "Paris", "Madrid"]
+          },
+          "q6": {
+            id: "q6",
+            text: "What is the largest planet in our solar system?",
+            correctAnswer: "Jupiter",
+            questionType: "multiple-choice" as const,
+            options: ["Mars", "Venus", "Saturn", "Jupiter"]
+          }
+        };
+
+        // Batch the updates together
+        gameClient.produce((draft) => {
+          draft.value = { lobby: "ready" } as const;
+          draft.public.questions = questions;
+        });
+      }
+      return Promise.resolve();
+    };
+
+    // Mount component
+    await mount(
+      <GameContext.ProviderFromClient client={gameClient}>
+        <HostView host="dev.triviajam.tv" />
+      </GameContext.ProviderFromClient>
+    );
+
+    await step('Paste formatted questions', async () => {
+      const documentInput = await canvas.findByPlaceholderText(/Paste your questions below using this format/i);
+      
+      const questionText = `How many bones in human body?
+206
+
+How many floors in Empire State Building?
+102
+
+How many grapes per wine bottle?
+700
+
+What major canal opened in 1914?
+a) Suez Canal b) Panama Canal c) Erie Canal d) English Channel
+Correct answer: B
+
+What is the capital of France?
+a) London b) Berlin c) Paris d) Madrid
+Correct answer: C
+
+What is the largest planet in our solar system?
+a) Mars b) Venus c) Saturn d) Jupiter
+Correct answer: D`;
+
+      await userEvent.clear(documentInput);
+      await userEvent.type(documentInput, questionText);
+
+      // Dispatch change event to ensure React state is updated
+      documentInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+      // Wait for React state to update
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+
+    await step('Parse questions and verify loading state', async () => {
+      const submitButton = await canvas.findByRole("button", { name: /submit/i });
+      
+      // Wait for button to be enabled
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Force enable the button for testing
+      submitButton.removeAttribute('disabled');
+      
+      expect(submitButton).toBeEnabled();
+      await userEvent.click(submitButton);
+
+      // Wait for loading state
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Verify loading state
+      const loadingSpinner = await canvas.findByTestId("parsing-spinner");
+      expect(loadingSpinner).toBeInTheDocument();
+      const loadingText = await canvas.findByText(/Processing questions/i);
+      expect(loadingText).toBeInTheDocument();
+
+      // Wait for loading state to complete
+      await new Promise(resolve => setTimeout(resolve, 600));
+    });
+
+    await step('Verify parsed questions', async () => {
+      // Verify questions parsed header
+      const parsedHeader = await canvas.findByRole("heading", { 
+        name: /6 Questions/i,
+        level: 3
+      });
+      expect(parsedHeader).toBeInTheDocument();
+
+      // Find the first question using a test ID
+      const firstQuestion = await canvas.findByTestId("parsed-question-1");
+      expect(firstQuestion).toHaveTextContent("How many bones in human body?");
+
+      // Verify other questions are displayed
+      const questions = await canvas.findAllByTestId(/^parsed-question-/);
+      expect(questions).toHaveLength(6);
+    });
+
+    await step('Verify start game button is enabled', async () => {
+      const startButton = await canvas.findByRole("button", { name: /start game/i });
+      expect(startButton).toBeEnabled();
+    });
+
+    // Cleanup
+    mounted = false;
+  },
+};
+
+export const ParsingDocumentLoading: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            hostId: "host-123",
+            players: [
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+            questions: {},
+            questionResults: [],
+            settings: {
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { lobby: "parsingDocument" } as const,
+        },
+      },
+    },
+  },
+  play: async ({ canvas, mount }) => {
+    await mount(<HostView host="dev.triviajam.tv" />);
+
+    // Verify loading state is shown
+    const loadingSpinner = await canvas.findByTestId("parsing-spinner");
+    expect(loadingSpinner).toBeInTheDocument();
+
+    const loadingText = await canvas.findByText(/Processing questions/i);
+    expect(loadingText).toBeInTheDocument();
+  },
+};
+
+export const LastQuestionResults: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -194,18 +1014,103 @@ export const QuestionControls: Story = {
             id: "game-123",
             hostId: "host-123",
             gameStatus: "active",
-            players: [
-              { id: "player-1", name: "Player 1", score: 0 },
-              { id: "player-2", name: "Player 2", score: 0 },
-            ],
-            questions: {},
-            questionResults: [],
+            questionNumber: 6,
             settings: {
-              maxPlayers: 10,
-              questionCount: 10,
+              maxPlayers: 20,
               answerTimeWindow: 30,
-              requireExactAnswers: false,
             },
+            players: [
+              { id: "player-1", name: "Player 1", score: 15 },
+              { id: "player-2", name: "Player 2", score: 12 },
+              { id: "player-3", name: "Player 3", score: 8 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "What is 2+2?",
+                correctAnswer: "4",
+                questionType: "numeric"
+              },
+              "q2": {
+                id: "q2",
+                text: "What is 3+3?",
+                correctAnswer: "6",
+                questionType: "numeric"
+              },
+              "q3": {
+                id: "q3",
+                text: "What is 4+4?",
+                correctAnswer: "8",
+                questionType: "numeric"
+              },
+              "q4": {
+                id: "q4",
+                text: "What is 5+5?",
+                correctAnswer: "10",
+                questionType: "numeric"
+              },
+              "q5": {
+                id: "q5",
+                text: "What is 6+6?",
+                correctAnswer: "12",
+                questionType: "numeric"
+              },
+              "q6": {
+                id: "q6",
+                text: "What is the largest planet in our solar system?",
+                correctAnswer: "Jupiter",
+                questionType: "multiple-choice",
+                options: ["Mars", "Venus", "Saturn", "Jupiter"]
+              }
+            },
+            currentQuestion: null,
+            questionResults: [{
+              questionId: "q6",
+              questionNumber: 6,
+              answers: [
+                {
+                  playerId: "player-1",
+                  playerName: "Player 1",
+                  value: "Jupiter",
+                  timestamp: Date.now() - 8000,
+                },
+                {
+                  playerId: "player-2",
+                  playerName: "Player 2",
+                  value: "Saturn",
+                  timestamp: Date.now() - 5000,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  value: "Mars",
+                  timestamp: Date.now() - 3000,
+                },
+              ],
+              scores: [
+                {
+                  playerId: "player-1",
+                  playerName: "Player 1",
+                  points: 3,
+                  position: 1,
+                  timeTaken: 8,
+                },
+                {
+                  playerId: "player-2",
+                  playerName: "Player 2",
+                  points: 0,
+                  position: 2,
+                  timeTaken: 5,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  points: 0,
+                  position: 3,
+                  timeTaken: 3,
+                },
+              ],
+            }],
           },
           value: { active: "questionPrep" },
         },
@@ -221,452 +1126,133 @@ export const QuestionControls: Story = {
           id: "game-123",
           hostId: "host-123",
           gameStatus: "active",
-          players: [
-            { id: "player-1", name: "Player 1", score: 0 },
-            { id: "player-2", name: "Player 2", score: 0 },
-          ],
-          questions: {},
-          questionResults: [],
+          questionNumber: 6,
           settings: {
-            maxPlayers: 10,
-            questionCount: 10,
+            maxPlayers: 20,
             answerTimeWindow: 30,
           },
-        },
-        value: { active: "questionPrep" },
-      },
-    });
-
-    await mount(
-      <GameContext.ProviderFromClient client={gameClient}>
-        <HostView host="dev.triviajam.tv" />
-      </GameContext.ProviderFromClient>
-    );
-
-    // Enter question text and numerical answer
-    const questionInput = canvas.getByLabelText(/enter question/i);
-    await userEvent.type(questionInput, "What year was the Declaration of Independence signed?");
-    
-    const answerInput = canvas.getByLabelText(/correct answer/i);
-    await userEvent.type(answerInput, "1776");
-    
-    const submitButton = canvas.getByRole("button", { name: /submit question/i });
-    await userEvent.click(submitButton);
-
-    // Simulate question being set with new structure
-    const questionId = "q1";
-    gameClient.produce((draft) => {
-      draft.public.questions[questionId] = {
-        id: questionId,
-        text: "What year was the Declaration of Independence signed?",
-        correctAnswer: 1776,
-        requireExactAnswer: false,
-      };
-      draft.public.currentQuestion = {
-        questionId,
-        startTime: Date.now(),
-        answers: [],
-      };
-      draft.value = { active: "questionActive" };
-    });
-
-    // Verify question is displayed
-    const questionDisplay = await canvas.findByText("What year was the Declaration of Independence signed?");
-    expect(questionDisplay).toBeInTheDocument();
-
-    // Simulate player submitting answer
-    gameClient.produce((draft) => {
-      if (draft.public.currentQuestion) {
-        draft.public.currentQuestion.answers.push({
-          playerId: "player-1",
-          playerName: "Player 1",
-          value: 1776,
-          timestamp: Date.now(),
-        });
-      }
-    });
-
-    // Wait for answer timeout
-    await new Promise(resolve => setTimeout(resolve, 1000));
-
-    // Simulate scores being updated
-    gameClient.produce((draft) => {
-      draft.public.questionResults.push({
-        questionId,
-        questionNumber: 1,
-        answers: [
-          {
-            playerId: "player-1",
-            playerName: "Player 1",
-            value: 1776,
-            timestamp: Date.now() - 500,
-          }
-        ],
-        scores: [
-          {
-            playerId: "player-1",
-            playerName: "Player 1",
-            points: 3,
-            position: 1,
-            timeTaken: 0.5,
-          }
-        ],
-      });
-      draft.public.players[0].score = 3;
-      draft.public.currentQuestion = null;
-      draft.value = { active: "questionPrep" };
-    });
-
-    // Verify score update
-    const playerScore = await canvas.findByText("3");
-    expect(playerScore).toBeInTheDocument();
-  },
-};
-
-export const QuestionInputExactAnswer: Story = {
-  parameters: {
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "host-123",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            id: "game-123",
-            hostId: "host-123",
-            gameStatus: "active",
-            players: [
-              { id: "player-1", name: "Player 1", score: 0 },
-              { id: "player-2", name: "Player 2", score: 0 },
-            ],
-            questions: {},
-            questionResults: [],
-            settings: {
-              maxPlayers: 10,
-              questionCount: 10,
-              answerTimeWindow: 30,
-              requireExactAnswers: false,
-            },
-          },
-          value: { active: "questionPrep" },
-        },
-      },
-    },
-  },
-};
-
-export const QuestionInputClosestAnswer: Story = {
-  parameters: {
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "host-123",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            id: "game-123",
-            hostId: "host-123",
-            gameStatus: "active",
-            players: [
-              { id: "player-1", name: "Player 1", score: 0 },
-              { id: "player-2", name: "Player 2", score: 0 },
-            ],
-            questions: {},
-            questionResults: [],
-            settings: {
-              maxPlayers: 10,
-              questionCount: 10,
-              answerTimeWindow: 30,
-              requireExactAnswers: false,
-            },
-          },
-          value: { active: "questionPrep" },
-        },
-      },
-    },
-  },
-  args: {
-    initialExactAnswer: false, // This would require a prop to be added to HostView
-  },
-};
-
-export const GameFinished: Story = {
-  parameters: {
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "host-123",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            id: "game-123",
-            hostId: "host-123",
-            gameStatus: "finished",
-            winner: "player-1",
-            players: [
-              { id: "player-1", name: "Player 1", score: 3 },
-              { id: "player-2", name: "Player 2", score: 1 },
-            ],
-            questions: {},
-            questionResults: [],
-            settings: {
-              maxPlayers: 10,
-              questionCount: 10,
-              answerTimeWindow: 30,
-              requireExactAnswers: false,
-            },
-          },
-          value: "finished",
-        },
-      },
-    },
-  },
-  play: async ({ canvas, mount }) => {
-    const gameClient = createActorKitMockClient<GameMachine>({
-      initialSnapshot: {
-        ...defaultGameSnapshot,
-        public: {
-          ...defaultGameSnapshot.public,
-          id: "game-123",
-          hostId: "host-123",
-          gameStatus: "finished",
-          winner: "player-1",
           players: [
-            { id: "player-1", name: "Player 1", score: 3 },
-            { id: "player-2", name: "Player 2", score: 1 },
+            { id: "player-1", name: "Player 1", score: 15 },
+            { id: "player-2", name: "Player 2", score: 12 },
+            { id: "player-3", name: "Player 3", score: 8 },
           ],
-          questions: {},
-          questionResults: [],
-          settings: {
-            maxPlayers: 10,
-            questionCount: 10,
-            answerTimeWindow: 30,
+          questions: {
+            "q1": {
+              id: "q1",
+              text: "What is 2+2?",
+              correctAnswer: "4",
+              questionType: "numeric"
+            },
+            "q2": {
+              id: "q2",
+              text: "What is 3+3?",
+              correctAnswer: "6",
+              questionType: "numeric"
+            },
+            "q3": {
+              id: "q3",
+              text: "What is 4+4?",
+              correctAnswer: "8",
+              questionType: "numeric"
+            },
+            "q4": {
+              id: "q4",
+              text: "What is 5+5?",
+              correctAnswer: "10",
+              questionType: "numeric"
+            },
+            "q5": {
+              id: "q5",
+              text: "What is 6+6?",
+              correctAnswer: "12",
+              questionType: "numeric"
+            },
+            "q6": {
+              id: "q6",
+              text: "What is the largest planet in our solar system?",
+              correctAnswer: "Jupiter",
+              questionType: "multiple-choice",
+              options: ["Mars", "Venus", "Saturn", "Jupiter"]
+            }
           },
-        },
-        value: "finished",
-      },
-    });
-
-    await mount(
-      <GameContext.ProviderFromClient client={gameClient}>
-        <HostView host="dev.triviajam.tv" />
-      </GameContext.ProviderFromClient>
-    );
-
-    // Verify final scores display
-    const player1Score = await canvas.findByText("Player 1");
-    expect(player1Score).toBeInTheDocument();
-    const player1Points = await canvas.findByText("3");
-    expect(player1Points).toBeInTheDocument();
-
-    const player2Score = await canvas.findByText("Player 2");
-    expect(player2Score).toBeInTheDocument();
-    const player2Points = await canvas.findByText("1");
-    expect(player2Points).toBeInTheDocument();
-  },
-};
-
-export const QuestionJustSubmitted: Story = {
-  parameters: {
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "host-123",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            id: "game-123",
-            hostId: "host-123",
-            gameStatus: "active",
-            players: [
-              { id: "player-1", name: "Player 1", score: 0 },
-              { id: "player-2", name: "Player 2", score: 0 },
-            ],
-            questions: {
-              "q1": {
-                id: "q1",
-                text: "What year was the Declaration of Independence signed?",
-                correctAnswer: 1776,
-                requireExactAnswer: false,
+          currentQuestion: null,
+          questionResults: [{
+            questionId: "q6",
+            questionNumber: 6,
+            answers: [
+              {
+                playerId: "player-1",
+                playerName: "Player 1",
+                value: "Jupiter",
+                timestamp: Date.now() - 8000,
               },
-            },
-            currentQuestion: {
-              questionId: "q1",
-              startTime: Date.now(),
-              answers: [],
-            },
-            questionResults: [],
-            settings: {
-              maxPlayers: 10,
-              questionCount: 10,
-              answerTimeWindow: 30,
-              requireExactAnswers: false,
-            },
-          },
-          value: { active: "questionActive" },
-        },
-      },
-    },
-  },
-};
-
-export const QuestionWithOneAnswer: Story = {
-  parameters: {
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "host-123",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            id: "game-123",
-            hostId: "host-123",
-            gameStatus: "active",
-            players: [
-              { id: "player-1", name: "Player 1", score: 0 },
-              { id: "player-2", name: "Player 2", score: 0 },
-            ],
-            questions: {
-              "q1": {
-                id: "q1",
-                text: "What year was the Declaration of Independence signed?",
-                correctAnswer: 1776,
-                requireExactAnswer: false,
-              },
-            },
-            currentQuestion: {
-              questionId: "q1",
-              startTime: Date.now() - 5000, // Started 5 seconds ago
-              answers: [
                 {
-                  playerId: "player-1",
-                  playerName: "Player 1",
-                  value: 1776,
-                  timestamp: Date.now() - 2000, // Answered 2 seconds ago
+                  playerId: "player-2",
+                  playerName: "Player 2",
+                  value: "Saturn",
+                  timestamp: Date.now() - 5000,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  value: "Mars",
+                  timestamp: Date.now() - 3000,
                 },
               ],
-            },
-            questionResults: [],
-            settings: {
-              maxPlayers: 10,
-              questionCount: 10,
-              answerTimeWindow: 30,
-              requireExactAnswers: false,
-            },
-          },
-          value: { active: "questionActive" },
-        },
-      },
-    },
-  },
-};
-
-export const QuestionWithTwoAnswers: Story = {
-  parameters: {
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "host-123",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            id: "game-123",
-            hostId: "host-123",
-            gameStatus: "active",
-            players: [
-              { id: "player-1", name: "Player 1", score: 0 },
-              { id: "player-2", name: "Player 2", score: 0 },
-            ],
-            questions: {
-              "q1": {
-                id: "q1",
-                text: "What year was the Declaration of Independence signed?",
-                correctAnswer: 1776,
-                requireExactAnswer: false,
-              },
-            },
-            currentQuestion: {
-              questionId: "q1",
-              startTime: Date.now() - 10000, // Started 10 seconds ago
-              answers: [
+              scores: [
                 {
                   playerId: "player-1",
                   playerName: "Player 1",
-                  value: 1776,
-                  timestamp: Date.now() - 8000, // Answered 8 seconds ago
+                  points: 3,
+                  position: 1,
+                  timeTaken: 8,
                 },
                 {
                   playerId: "player-2",
                   playerName: "Player 2",
-                  value: 1775,
-                  timestamp: Date.now() - 3000, // Answered 3 seconds ago
+                  points: 0,
+                  position: 2,
+                  timeTaken: 5,
+                },
+                {
+                  playerId: "player-3",
+                  playerName: "Player 3",
+                  points: 0,
+                  position: 3,
+                  timeTaken: 3,
                 },
               ],
-            },
-            questionResults: [],
-            settings: {
-              maxPlayers: 10,
-              questionCount: 10,
-              answerTimeWindow: 30,
-              requireExactAnswers: false,
-            },
-          },
-          value: { active: "questionActive" },
+            }],
         },
+        value: { active: "questionPrep" },
       },
-    },
+    });
+    let sentEvent: any = null;
+    gameClient.send = (event) => {
+      sentEvent = event;
+      return Promise.resolve();
+    };
+
+    await mount(
+      <GameContext.ProviderFromClient client={gameClient}>
+        <HostView host="dev.triviajam.tv" />
+      </GameContext.ProviderFromClient>
+    );
+
+    // Verify the end game button is shown (since it's the last question)
+    const endGameButton = await canvas.findByTestId("end-game-button");
+    expect(endGameButton).toBeInTheDocument();
+    expect(endGameButton).toBeEnabled();
+
+    // Click the end game button
+    await userEvent.click(endGameButton);
+
+    // Verify the END_GAME event was sent
+    expect(sentEvent?.type).toBe("END_GAME");
   },
 };
 
-export const QuestionPrepWithPreviousResults: Story = {
+export const NextQuestionPreview: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -686,115 +1272,29 @@ export const QuestionPrepWithPreviousResults: Story = {
             id: "game-123",
             hostId: "host-123",
             gameStatus: "active",
-            players: [
-              { id: "player-1", name: "Player 1", score: 3 },
-              { id: "player-2", name: "Player 2", score: 2 },
-              { id: "player-3", name: "Player 3", score: 0 },
-            ],
-            questions: {
-              "q1": {
-                id: "q1",
-                text: "What year was the Declaration of Independence signed?",
-                correctAnswer: 1776,
-                requireExactAnswer: false,
-              },
-            },
-            currentQuestion: null,
-            questionResults: [
-              {
-                questionId: "q1",
-                questionNumber: 1,
-                answers: [
-                  {
-                    playerId: "player-1",
-                    playerName: "Player 1",
-                    value: 1776,
-                    timestamp: Date.now() - 8000,
-                  },
-                  {
-                    playerId: "player-2",
-                    playerName: "Player 2",
-                    value: 1775,
-                    timestamp: Date.now() - 5000,
-                  },
-                  {
-                    playerId: "player-3",
-                    playerName: "Player 3",
-                    value: 1770,
-                    timestamp: Date.now() - 3000,
-                  },
-                ],
-                scores: [
-                  {
-                    playerId: "player-1",
-                    playerName: "Player 1",
-                    points: 3,
-                    position: 1,
-                    timeTaken: 8,
-                  },
-                  {
-                    playerId: "player-2",
-                    playerName: "Player 2",
-                    points: 2,
-                    position: 2,
-                    timeTaken: 5,
-                  },
-                  {
-                    playerId: "player-3",
-                    playerName: "Player 3",
-                    points: 0,
-                    position: 3,
-                    timeTaken: 3,
-                  },
-                ],
-              },
-            ],
+            questionNumber: 1,
             settings: {
-              maxPlayers: 10,
-              questionCount: 10,
+              maxPlayers: 20,
               answerTimeWindow: 30,
             },
-          },
-          value: { active: "questionPrep" },
-        },
-      },
-    },
-  },
-};
-
-export const ShowingPreviousResults: Story = {
-  parameters: {
-    actorKit: {
-      session: {
-        "session-123": {
-          ...defaultSessionSnapshot,
-          public: {
-            ...defaultSessionSnapshot.public,
-            userId: "host-123",
-          },
-        },
-      },
-      game: {
-        "game-123": {
-          ...defaultGameSnapshot,
-          public: {
-            ...defaultGameSnapshot.public,
-            id: "game-123",
-            hostId: "host-123",
-            gameStatus: "active",
-            questionNumber: 2,
             players: [
-              { id: "player-1", name: "Player 1", score: 3 },
-              { id: "player-2", name: "Player 2", score: 2 },
-              { id: "player-3", name: "Player 3", score: 0 },
+              { id: "player-1", name: "Player 1", score: 15 },
+              { id: "player-2", name: "Player 2", score: 12 },
+              { id: "player-3", name: "Player 3", score: 8 },
             ],
             questions: {
               "q1": {
                 id: "q1",
                 text: "What year was the Declaration of Independence signed?",
                 correctAnswer: 1776,
-                requireExactAnswer: false,
+                questionType: "numeric"
               },
+              "q2": {
+                id: "q2",
+                text: "How many bones are in the human body?",
+                correctAnswer: 206,
+                questionType: "numeric"
+              }
             },
             currentQuestion: null,
             questionResults: [{
@@ -853,31 +1353,17 @@ export const ShowingPreviousResults: Story = {
   play: async ({ canvas, mount }) => {
     await mount(<HostView host="dev.triviajam.tv" />);
 
-    // Find the question text in the h1
-    const questionText = await canvas.findByRole('heading', {
-      name: "What year was the Declaration of Independence signed?"
-    });
-    expect(questionText).toBeInTheDocument();
+    // Verify the next question preview is shown
+    const nextQuestionPreview = await canvas.findByText("How many bones are in the human body?");
+    expect(nextQuestionPreview).toBeInTheDocument();
 
-    // Verify correct answer is shown
-    const correctAnswer = await canvas.findByText("1776", {
-      selector: '.text-green-400' // Only match the green correct answer text
-    });
+    // Verify the correct answer is shown
+    const correctAnswer = await canvas.findByText("206");
     expect(correctAnswer).toBeInTheDocument();
 
-    // Verify player results using more specific selectors
-    const player1Row = await canvas.findByTestId('player-result-player-1');
-    within(player1Row).getByText("Player 1");
-    within(player1Row).getByText((content) => content.includes("1776")); // Match partial text
-    within(player1Row).getByText((content) => content.includes("8.0s")); // Match partial text
-
-    const player2Row = await canvas.findByTestId('player-result-player-2');
-    within(player2Row).getByText("Player 2");
-    within(player2Row).getByText((content) => content.includes("1775")); // Match partial text
-    within(player2Row).getByText((content) => content.includes("5.0s")); // Match partial text
-
-    // Verify question input form is present
-    const questionInput = await canvas.findByLabelText("Enter Question");
-    expect(questionInput).toBeInTheDocument();
+    // Verify the next question button is shown
+    const nextButton = await canvas.findByRole("button", { name: /start next question/i });
+    expect(nextButton).toBeInTheDocument();
+    expect(nextButton).toBeEnabled();
   },
 }; 

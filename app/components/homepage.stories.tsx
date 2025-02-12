@@ -15,11 +15,10 @@ const meta: Meta<typeof Homepage> = {
 export default meta;
 type Story = StoryObj<typeof Homepage>;
 
-// Default view
-export const Default: Story = {};
+// Display Stories
+export const DefaultView: Story = {};
 
-// With game code entered
-export const WithGameCode: Story = {
+export const WithCode: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     
@@ -32,8 +31,32 @@ export const WithGameCode: Story = {
   },
 };
 
-// Join game interaction
-export const JoinGameInteraction: Story = {
+export const MobileLayout: Story = {
+  parameters: {
+    viewport: {
+      defaultViewport: 'mobile1',
+    },
+  },
+};
+
+export const TabletLayout: Story = {
+  parameters: {
+    viewport: {
+      defaultViewport: 'tablet',
+    },
+  },
+};
+
+export const DesktopLayout: Story = {
+  parameters: {
+    viewport: {
+      defaultViewport: 'desktop',
+    },
+  },
+};
+
+// Interactive Test Stories
+export const TestJoinGame: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     
@@ -47,8 +70,7 @@ export const JoinGameInteraction: Story = {
   },
 };
 
-// Create new game interaction
-export const CreateGameInteraction: Story = {
+export const TestCreateGame: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     
@@ -58,40 +80,12 @@ export const CreateGameInteraction: Story = {
   },
 };
 
-// Show help interaction
-export const ShowHelpInteraction: Story = {
+export const TestHelpDialog: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     
     // Click the help button
     const helpButton = canvas.getByRole('button', { name: /how to play/i });
     await userEvent.click(helpButton);
-  },
-};
-
-// Mobile view
-export const Mobile: Story = {
-  parameters: {
-    viewport: {
-      defaultViewport: 'mobile1',
-    },
-  },
-};
-
-// Tablet view
-export const Tablet: Story = {
-  parameters: {
-    viewport: {
-      defaultViewport: 'tablet',
-    },
-  },
-};
-
-// Desktop view
-export const Desktop: Story = {
-  parameters: {
-    viewport: {
-      defaultViewport: 'desktop',
-    },
   },
 }; 

@@ -16,15 +16,15 @@ export const defaultGameSnapshot = {
     gameStatus: "lobby" as const,
     winner: null,
     settings: {
-      maxPlayers: 10,
-      questionCount: 10,
+      maxPlayers: 20,
       answerTimeWindow: 30,
     },
-    questions: {} as Record<string, { 
-      id: string; 
-      text: string; 
-      correctAnswer: number;
-      requireExactAnswer: boolean;
+    questions: {} as Record<string, {
+      id: string;
+      text: string;
+      correctAnswer: string | number;
+      questionType: "numeric" | "multiple-choice";
+      options?: string[];
     }>,
     questionResults: [],
     questionNumber: 0,
