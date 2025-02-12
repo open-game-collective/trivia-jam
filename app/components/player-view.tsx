@@ -102,7 +102,7 @@ export const PlayerView = () => {
           <>
             <QuestionProgress 
               current={gameState.public.questionNumber} 
-              total={gameState.public.settings.questionCount} 
+              total={Object.keys(gameState.public.questions).length} 
             />
             
             {!currentQuestion && questionResults.length > 0 && (
@@ -608,10 +608,14 @@ const QuestionResultsDisplay = ({
                 if (!answer) return null;
 
                 const isCurrentPlayer = score.playerId === player.id;
-                const isExact = answer.value === question.correctAnswer;
-                const isClose = Math.abs(
-                  answer.value - question.correctAnswer
-                ) / question.correctAnswer < 0.1; // Within 10%
+                const isExact = question.questionType === "numeric" ? 
+                  Number(answer.value) === Number(question.correctAnswer) :
+                  answer.value === question.correctAnswer;
+                const isClose = question.questionType === "numeric" && 
+                  typeof answer.value !== 'undefined' && 
+                  typeof question.correctAnswer !== 'undefined' ? 
+                  Math.abs(Number(answer.value) - Number(question.correctAnswer)) / Number(question.correctAnswer) < 0.1 : 
+                  false; // Within 10%
 
                 return (
                   <div

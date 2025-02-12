@@ -32,7 +32,8 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-export const InLobby: Story = {
+// Display Stories
+export const LobbyView: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -57,7 +58,7 @@ export const InLobby: Story = {
   },
 };
 
-export const WaitingForQuestion: Story = {
+export const QuestionPrep: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -84,7 +85,7 @@ export const WaitingForQuestion: Story = {
   },
 };
 
-export const QuestionVisible: Story = {
+export const ActiveQuestion: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -309,7 +310,7 @@ export const QuestionResults: Story = {
   },
 };
 
-export const QuestionResultsNoPoints: Story = {
+export const NoPointsResults: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -442,7 +443,7 @@ export const QuestionResultsNoPoints: Story = {
   },
 };
 
-export const NoCorrectAnswers: Story = {
+export const NoAnswersResults: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -520,7 +521,7 @@ export const NoCorrectAnswers: Story = {
   },
 };
 
-export const MultiplePlayersWithMixedAnswers: Story = {
+export const MultiplayerResults: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -684,7 +685,8 @@ export const MultiplePlayersWithMixedAnswers: Story = {
   },
 };
 
-export const NameEntryWithHelp: Story = {
+// Interactive Test Stories
+export const TestNameEntry: Story = {
   parameters: {
     actorKit: {
       session: {
@@ -717,5 +719,14 @@ export const NameEntryWithHelp: Story = {
 
     // TODO: Test drawer content once we figure out how to handle portals in Storybook
     // For now, we just verify the help button exists and can be clicked
+  },
+};
+
+export const TestAnswerSubmission: Story = {
+  parameters: {
+    // ... copy from QuestionVisible ...
+  },
+  play: async ({ mount, canvas }) => {
+    // ... copy play function from QuestionVisible ...
   },
 };
