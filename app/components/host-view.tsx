@@ -79,6 +79,7 @@ export const HostView = ({
   );
   const [isParsingDocument, setIsParsingDocument] = useState(false);
   const [isEditingQuestions, setIsEditingQuestions] = useState(false);
+  const client = GameContext.useClient();
 
   if (sessionState.userId !== hostId) {
     return (
@@ -534,6 +535,7 @@ const LobbyControls = ({
       copyGameLink();
     }
   };
+  const client = GameContext.useClient();
 
   const handleStartGame = () => {
     setIsStarting(true);
@@ -547,6 +549,17 @@ const LobbyControls = ({
       type: "PARSE_QUESTIONS",
       documentContent: documentContent.trim(),
     });
+
+    // Wait for questions to be added to the state
+    try {
+      await client.waitFor(
+        (state) => Object.keys(state.public.questions).length > 0,
+        10000 // 10 second timeout
+      );
+      setIsEditingQuestions(false);
+    } catch (error) {
+      console.error("Failed to parse questions:", error);
+    }
   };
 
   const handleSaveSettings = (newSettings: {
@@ -608,9 +621,12 @@ const LobbyControls = ({
         {/* Question Import Section */}
         {(!hasQuestions || isEditingQuestions) && (
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-indigo-300 mb-4">
+            <h2 className="text-xl font-bold text-indigo-300 mb-2">
               Import Questions
             </h2>
+            <p className="text-indigo-300/70 text-sm mb-4">
+              Add your trivia questions below. You can use numeric questions (with exact answers) or multiple choice questions. Each question should be followed by its answer.
+            </p>
             <div className="bg-gray-900/30 rounded-xl p-6 border border-gray-700/50">
               {isParsingDocument ? (
                 <div className="flex flex-col items-center justify-center py-8">
@@ -876,16 +892,6 @@ Correct answer: B`}
               Waiting for at least one player to join...
             </motion.p>
           )}
-
-          {!hasQuestions && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="text-center text-indigo-300/70 text-sm"
-            >
-              Please import questions before starting the game
-            </motion.p>
-          )}
         </div>
 
         <AnimatePresence>
@@ -914,14 +920,10 @@ const QuestionControls = ({
   } | null;
   players: Array<{ id: string; name: string; score: number }>;
 }) => {
-  const [questionText, setQuestionText] = useState("");
-  const [correctAnswer, setCorrectAnswer] = useState("");
   const send = GameContext.useSend();
   const gameState = GameContext.useSelector((state) => state.public);
-  const lastQuestionResult =
-    gameState.questionResults[gameState.questionResults.length - 1];
-  const isLastQuestion =
-    gameState.questionNumber >= Object.keys(gameState.questions).length;
+  const lastQuestionResult = gameState.questionResults[gameState.questionResults.length - 1];
+  const isLastQuestion = gameState.questionNumber >= Object.keys(gameState.questions).length;
 
   // Add timer state
   const [timeLeft, setTimeLeft] = useState(0);
@@ -962,14 +964,7 @@ const QuestionControls = ({
     : null;
 
   // Get next unanswered question
-  const nextQuestion: Question | undefined = Object.values(
-    gameState.questions
-  ).find(
-    (q: Question) =>
-      !gameState.questionResults.some(
-        (r: { questionId: string }) => r.questionId === q.id
-      )
-  );
+  const nextQuestion = Object.values(gameState.questions)[gameState.questionNumber - 1];
 
   return (
     <div className="min-h-screen flex flex-col items-center pt-16 p-4 relative">
@@ -1120,7 +1115,7 @@ const QuestionControls = ({
           </motion.div>
         )}
 
-        {/* Question Input or Next Question Button */}
+        {/* Question Results or Next Question Button */}
         {!currentQuestion && (
           <>
             {lastQuestionResult ? (
@@ -1200,18 +1195,13 @@ const QuestionControls = ({
                     </div>
                     <motion.button
                       onClick={() => {
-                        if (
-                          !nextQuestion?.text ||
-                          !nextQuestion?.correctAnswer ||
-                          !nextQuestion?.questionType
-                        )
-                          return;
+                        if (!nextQuestion) return;
                         send({
                           type: "NEXT_QUESTION",
                           text: nextQuestion.text,
                           correctAnswer: nextQuestion.correctAnswer,
                           questionType: nextQuestion.questionType,
-                          options: nextQuestion.options,
+                          options: nextQuestion.options
                         });
                       }}
                       className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-purple-500"
@@ -1230,62 +1220,69 @@ const QuestionControls = ({
                 className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
               >
                 <h2 className="text-xl font-bold text-indigo-300 mb-4">
-                  Manual Question Entry
+                  Start First Question
                 </h2>
-                <textarea
-                  id="question-input"
-                  value={questionText}
-                  onChange={(e) => setQuestionText(e.target.value)}
-                  placeholder="Type your question here..."
-                  className="w-full bg-gray-900/50 rounded-xl p-3 sm:p-4 text-white placeholder-white/50 border border-gray-700/50 mb-3 sm:mb-4 text-lg"
-                  rows={5}
-                  aria-label="Enter question"
-                />
-
-                <input
-                  id="correct-answer"
-                  type="number"
-                  value={correctAnswer}
-                  onChange={(e) => setCorrectAnswer(e.target.value)}
-                  placeholder="Enter the numerical answer"
-                  className="w-full bg-gray-900/50 rounded-xl p-3 sm:p-4 text-white placeholder-white/50 border border-gray-700/50 mb-3 sm:mb-4 text-lg"
-                  aria-label="Correct answer"
-                  step="any"
-                />
-
+                <div className="bg-gray-900/30 rounded-xl p-4 mb-6">
+                  {nextQuestion ? (
+                    <>
+                      <div className="text-lg text-white/90 mb-2">
+                        {nextQuestion.text}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-white/60">
+                          Answer:
+                        </span>
+                        <span className="text-lg font-medium text-green-400">
+                          {nextQuestion.correctAnswer}
+                        </span>
+                      </div>
+                      {nextQuestion.questionType === "multiple-choice" &&
+                        nextQuestion.options && (
+                          <div className="mt-2">
+                            <div className="text-sm text-white/60 mb-1">
+                              Options:
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {nextQuestion.options.map(
+                                (option: string, index: number) => (
+                                  <div
+                                    key={index}
+                                    className={`text-sm p-2 rounded ${
+                                      option === nextQuestion.correctAnswer
+                                        ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                        : "bg-gray-800/50 text-white/70"
+                                    }`}
+                                  >
+                                    {option}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+                    </>
+                  ) : (
+                    <div className="text-lg text-white/70 text-center py-4">
+                      No questions available
+                    </div>
+                  )}
+                </div>
                 <motion.button
                   onClick={() => {
-                    if (!questionText.trim() || !correctAnswer.trim()) return;
-
+                    if (!nextQuestion) return;
                     send({
                       type: "NEXT_QUESTION",
-                      text: questionText.trim(),
-                      correctAnswer: Number(correctAnswer.trim()),
-                      questionType: "numeric" as const,
+                      text: nextQuestion.text,
+                      correctAnswer: nextQuestion.correctAnswer,
+                      questionType: nextQuestion.questionType,
+                      options: nextQuestion.options
                     });
-                    setQuestionText("");
-                    setCorrectAnswer("");
                   }}
-                  disabled={!questionText.trim() || !correctAnswer.trim()}
-                  className={`w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
-                    ${
-                      questionText.trim() && correctAnswer.trim()
-                        ? "hover:from-indigo-500 hover:to-purple-500 opacity-100"
-                        : "opacity-50 cursor-not-allowed"
-                    }`}
-                  whileHover={
-                    questionText.trim() && correctAnswer.trim()
-                      ? { scale: 1.02 }
-                      : {}
-                  }
-                  whileTap={
-                    questionText.trim() && correctAnswer.trim()
-                      ? { scale: 0.98 }
-                      : {}
-                  }
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-purple-500"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
                 >
-                  <ChevronRight className="w-5 h-5" />
-                  Next Question
+                  Start First Question
                 </motion.button>
               </motion.div>
             )}

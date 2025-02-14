@@ -1,7 +1,21 @@
 import { ActorKitStateMachine } from "actor-kit";
 import { produce } from "immer";
-import { assign, DoneActorEvent, fromPromise, setup } from "xstate";
-import type { GameEvent, GameInput, GameServerContext, Answer, QuestionResult, Question } from "./game.types";
+import {
+  assign,
+  DoneActorEvent,
+  ErrorActorEvent,
+  fromPromise,
+  setup,
+} from "xstate";
+import type {
+  Answer,
+  GameEvent,
+  GameInput,
+  GameServerContext,
+  Question,
+  QuestionResult,
+} from "./game.types";
+import { parseQuestions } from "./gemini";
 
 // Helper function to calculate scores based on answers
 function calculateScores(
@@ -10,31 +24,35 @@ function calculateScores(
   startTime: number
 ): QuestionResult["scores"] {
   // Filter out invalid answers
-  const validAnswers = answers.filter(answer => {
+  const validAnswers = answers.filter((answer) => {
     if (question.questionType === "numeric") {
       const numericValue = Number(answer.value);
       return !isNaN(numericValue) && isFinite(numericValue);
     }
-    return typeof answer.value === "string" && question.options?.includes(answer.value);
+    return (
+      typeof answer.value === "string" &&
+      question.options?.includes(answer.value)
+    );
   });
 
   // For multiple choice, exact match is required
   if (question.questionType === "multiple-choice") {
-    const correctAnswers = validAnswers.filter(answer => 
-      answer.value === question.correctAnswer
+    const correctAnswers = validAnswers.filter(
+      (answer) => answer.value === question.correctAnswer
     );
 
     // Sort by time taken
-    const sortedAnswers = correctAnswers.sort((a, b) => 
-      (a.timestamp - startTime) - (b.timestamp - startTime)
+    const sortedAnswers = correctAnswers.sort(
+      (a, b) => a.timestamp - startTime - (b.timestamp - startTime)
     );
 
     // Award points based on position (4 for first, 3 for second, 2 for third, 1 for all other correct answers)
-    return validAnswers.map(answer => {
+    return validAnswers.map((answer) => {
       const isCorrect = answer.value === question.correctAnswer;
-      const position = sortedAnswers.findIndex(a => a.playerId === answer.playerId) + 1;
+      const position =
+        sortedAnswers.findIndex((a) => a.playerId === answer.playerId) + 1;
       let points = 0;
-      
+
       if (isCorrect) {
         // If correct, get at least 1 point, more for being faster
         points = position <= 3 ? 5 - position : 1;
@@ -45,20 +63,20 @@ function calculateScores(
         playerName: answer.playerName,
         points,
         position: position > 0 ? position : sortedAnswers.length + 1,
-        timeTaken: (answer.timestamp - startTime) / 1000
+        timeTaken: (answer.timestamp - startTime) / 1000,
       };
     });
   }
 
   // For numeric questions, use closest answer scoring
-  const numericAnswers = validAnswers.map(answer => {
+  const numericAnswers = validAnswers.map((answer) => {
     const numericValue = Number(answer.value);
     const correctNumericValue = Number(question.correctAnswer);
     return {
       ...answer,
       numericValue,
       difference: Math.abs(numericValue - correctNumericValue),
-      timeTaken: (answer.timestamp - startTime) / 1000
+      timeTaken: (answer.timestamp - startTime) / 1000,
     };
   });
 
@@ -71,49 +89,58 @@ function calculateScores(
   });
 
   // Group answers by position (handling ties)
-  const positions = numericAnswers.reduce<Array<typeof numericAnswers>>((acc, answer) => {
-    const lastGroup = acc[acc.length - 1];
-    
-    if (!lastGroup) {
-      acc.push([answer]);
+  const positions = numericAnswers.reduce<Array<typeof numericAnswers>>(
+    (acc, answer) => {
+      const lastGroup = acc[acc.length - 1];
+
+      if (!lastGroup) {
+        acc.push([answer]);
+        return acc;
+      }
+
+      const lastAnswer = lastGroup[0];
+      if (
+        lastAnswer.difference === answer.difference &&
+        Math.abs(lastAnswer.timeTaken - answer.timeTaken) < 0.1 // Tie if within 100ms
+      ) {
+        lastGroup.push(answer);
+      } else {
+        acc.push([answer]);
+      }
+
       return acc;
-    }
-
-    const lastAnswer = lastGroup[0];
-    if (
-      lastAnswer.difference === answer.difference &&
-      Math.abs(lastAnswer.timeTaken - answer.timeTaken) < 0.1 // Tie if within 100ms
-    ) {
-      lastGroup.push(answer);
-    } else {
-      acc.push([answer]);
-    }
-
-    return acc;
-  }, []);
+    },
+    []
+  );
 
   // Calculate points for each position group (top 3 get points)
   const pointsMap = new Map<string, number>();
   let currentPosition = 1;
 
-  positions.forEach(group => {
+  positions.forEach((group) => {
     if (currentPosition > 3) {
-      group.forEach(answer => pointsMap.set(answer.playerId, 0));
+      group.forEach((answer) => pointsMap.set(answer.playerId, 0));
     } else {
       // Average points for tied positions
-      const points = group.map((_, i) => Math.max(0, 4 - (currentPosition + i)));
+      const points = group.map((_, i) =>
+        Math.max(0, 4 - (currentPosition + i))
+      );
       const avgPoints = points.reduce((a, b) => a + b, 0) / points.length;
-      
-      group.forEach(answer => pointsMap.set(answer.playerId, avgPoints));
+
+      group.forEach((answer) => pointsMap.set(answer.playerId, avgPoints));
     }
     currentPosition += group.length;
   });
 
   // Create final scores array including all players
-  return validAnswers.map(answer => {
-    const scoredAnswer = numericAnswers.find(sa => sa.playerId === answer.playerId);
-    const position = scoredAnswer 
-      ? positions.findIndex(group => group.some(a => a.playerId === answer.playerId)) + 1
+  return validAnswers.map((answer) => {
+    const scoredAnswer = numericAnswers.find(
+      (sa) => sa.playerId === answer.playerId
+    );
+    const position = scoredAnswer
+      ? positions.findIndex((group) =>
+          group.some((a) => a.playerId === answer.playerId)
+        ) + 1
       : positions.length + 1;
 
     return {
@@ -121,7 +148,7 @@ function calculateScores(
       playerName: answer.playerName,
       points: pointsMap.get(answer.playerId) || 0,
       position,
-      timeTaken: (answer.timestamp - startTime) / 1000
+      timeTaken: (answer.timestamp - startTime) / 1000,
     };
   });
 }
@@ -133,10 +160,19 @@ export const gameMachine = setup({
     input: GameInput;
   },
   guards: {
-    isHost: ({ context, event }: { context: GameServerContext; event: GameEvent }) => 
-      'caller' in event && event.caller.type === 'client' && event.caller.id === context.public.hostId,
-    hasReachedQuestionLimit: ({ context }: { context: GameServerContext }) => 
-      context.public.questionNumber >= Object.keys(context.public.questions).length,
+    isHost: ({
+      context,
+      event,
+    }: {
+      context: GameServerContext;
+      event: GameEvent;
+    }) =>
+      "caller" in event &&
+      event.caller.type === "client" &&
+      event.caller.id === context.public.hostId,
+    hasReachedQuestionLimit: ({ context }: { context: GameServerContext }) =>
+      context.public.questionNumber >=
+      Object.keys(context.public.questions).length,
   },
   actors: {
     generateGameCode: fromPromise(async () => {
@@ -147,11 +183,26 @@ export const gameMachine = setup({
       }
       return code;
     }),
-    answerTimer: fromPromise(async ({ input }: { input: { timeWindow: number } }) => {
-      const { timeWindow } = input;
-      await new Promise(resolve => setTimeout(resolve, timeWindow * 1000));
-      return true;
-    }),
+    answerTimer: fromPromise(
+      async ({ input }: { input: { timeWindow: number } }) => {
+        const { timeWindow } = input;
+        await new Promise((resolve) => setTimeout(resolve, timeWindow * 1000));
+        return true;
+      }
+    ),
+    parseQuestionsDocument: fromPromise(
+      async ({
+        input,
+        system,
+      }: {
+        input: { documentContent: string; env: GameEvent["env"] };
+        system: any;
+      }) => {
+        const { documentContent, env } = input;
+        const questions = await parseQuestions(documentContent, env);
+        return { questions };
+      }
+    ),
   },
   actions: {
     updateGameStatus: assign(
@@ -179,10 +230,7 @@ export const gameMachine = setup({
       })
     ),
     setQuestion: assign(
-      (
-        { context },
-        { question }: { question: Question }
-      ) => ({
+      ({ context }, { question }: { question: Question }) => ({
         public: produce(context.public, (draft) => {
           draft.currentQuestion = {
             questionId: crypto.randomUUID(),
@@ -298,9 +346,11 @@ export const gameMachine = setup({
         if (draft.currentQuestion && event.type === "SUBMIT_ANSWER") {
           draft.currentQuestion.answers.push({
             playerId: event.caller.id,
-            playerName: draft.players.find(p => p.id === event.caller.id)?.name || "Unknown",
+            playerName:
+              draft.players.find((p) => p.id === event.caller.id)?.name ||
+              "Unknown",
             value: event.value,
-            timestamp: Date.now()
+            timestamp: Date.now(),
           });
         }
       }),
@@ -320,12 +370,12 @@ export const gameMachine = setup({
           questionId: draft.currentQuestion.questionId,
           questionNumber: draft.questionNumber,
           answers: draft.currentQuestion.answers,
-          scores
+          scores,
         };
 
         // Update player scores
-        scores.forEach(score => {
-          const player = draft.players.find(p => p.id === score.playerId);
+        scores.forEach((score) => {
+          const player = draft.players.find((p) => p.id === score.playerId);
           if (player) {
             player.score += Math.round(score.points);
           }
@@ -340,20 +390,27 @@ export const gameMachine = setup({
         // Check if game should end
         if (draft.questionNumber >= Object.keys(draft.questions).length) {
           draft.gameStatus = "finished";
-          const maxScore = Math.max(...draft.players.map(p => p.score));
-          const winners = draft.players.filter(p => p.score === maxScore);
+          const maxScore = Math.max(...draft.players.map((p) => p.score));
+          const winners = draft.players.filter((p) => p.score === maxScore);
           draft.winner = winners[0].id;
         }
       }),
     })),
-    assignParsedQuestions: assign({
-      public: ({ context, event }) => {
-        if (event.type !== "QUESTIONS_PARSED") return context.public;
-        return produce(context.public, (draft) => {
-          draft.questions = event.questions;
-        });
-      }
-    }),
+    assignParsedQuestions: assign(({ context }, { questions }: { questions: Record<string, Question> }) => ({
+      public: produce(context.public, (draft) => {
+        draft.questions = questions;
+      }),
+    })),
+    setParsingError: assign(({ context }, { error }: { error: Error }) => ({
+      public: produce(context.public, (draft) => {
+        draft.parsingErrorMessage = error.message;
+      }),
+    })),
+    clearParsingError: assign(({ context }) => ({
+      public: produce(context.public, (draft) => {
+        draft.parsingErrorMessage = undefined;
+      }),
+    })),
   },
 }).createMachine({
   id: "triviaGame",
@@ -398,36 +455,59 @@ export const gameMachine = setup({
           },
         },
         ready: {
+          entry: "clearParsingError",
           on: {
             JOIN_GAME: {
               actions: {
                 type: "addPlayerToGame",
-                params: ({ event }: { event: Extract<GameEvent, { type: "JOIN_GAME" }> }) => ({
+                params: ({
+                  event,
+                }: {
+                  event: Extract<GameEvent, { type: "JOIN_GAME" }>;
+                }) => ({
                   id: event.caller.id,
                   name: event.playerName,
                 }),
               },
             },
             START_GAME: {
-              guard: ({ context, event }: { context: GameServerContext; event: GameEvent }) => 
-                event.caller.id === context.public.hostId,
+              guard: ({
+                context,
+                event,
+              }: {
+                context: GameServerContext;
+                event: GameEvent;
+              }) => event.caller.id === context.public.hostId,
               target: "#triviaGame.active",
               actions: [
                 { type: "updateGameStatus", params: { status: "active" } },
-                { type: "setQuestionNumber", params: { number: 1 } },
               ],
             },
             PARSE_QUESTIONS: {
-              guard: ({ context, event }: { context: GameServerContext; event: GameEvent }) => 
-                event.caller.id === context.public.hostId,
+              guard: ({
+                context,
+                event,
+              }: {
+                context: GameServerContext;
+                event: GameEvent;
+              }) => event.caller.id === context.public.hostId,
               target: "parsingDocument",
             },
             REMOVE_PLAYER: {
-              guard: ({ context, event }: { context: GameServerContext; event: GameEvent }) => 
-                event.caller.id === context.public.hostId,
+              guard: ({
+                context,
+                event,
+              }: {
+                context: GameServerContext;
+                event: GameEvent;
+              }) => event.caller.id === context.public.hostId,
               actions: {
                 type: "removePlayer",
-                params: ({ event }: { event: Extract<GameEvent, { type: "REMOVE_PLAYER" }> }) => ({
+                params: ({
+                  event,
+                }: {
+                  event: Extract<GameEvent, { type: "REMOVE_PLAYER" }>;
+                }) => ({
                   playerId: event.playerId,
                 }),
               },
@@ -435,10 +515,42 @@ export const gameMachine = setup({
           },
         },
         parsingDocument: {
-          on: {
-            QUESTIONS_PARSED: {
+          invoke: {
+            src: "parseQuestionsDocument",
+            input: ({ event }: { event: GameEvent }) => {
+              console.log("event", event.env);
+              if (event.type !== "PARSE_QUESTIONS") {
+                throw new Error("Invalid event type");
+              }
+              return {
+                documentContent: event.documentContent,
+                env: event.env,
+              };
+            },
+            onDone: {
               target: "ready",
-              actions: "assignParsedQuestions",
+              actions: [
+                "clearParsingError",
+                {
+                  type: "assignParsedQuestions",
+                  params: ({ event }: { event: DoneActorEvent<{ questions: Record<string, Question> }> }) => ({
+                    questions: event.output.questions
+                  }),
+                },
+              ],
+            },
+            onError: {
+              target: "ready",
+              actions: {
+                type: "setParsingError",
+                params: ({
+                  event,
+                }: {
+                  event: ErrorActorEvent<unknown, string>;
+                }) => ({
+                  error: event.error as Error,
+                }),
+              },
             },
           },
         },
@@ -450,13 +562,22 @@ export const gameMachine = setup({
         questionPrep: {
           on: {
             NEXT_QUESTION: {
-              guard: ({ context, event }: { context: GameServerContext; event: GameEvent }) => 
-                event.caller.id === context.public.hostId,
+              guard: ({
+                context,
+                event,
+              }: {
+                context: GameServerContext;
+                event: GameEvent;
+              }) => event.caller.id === context.public.hostId,
               target: "questionActive",
               actions: [
                 {
                   type: "setQuestion",
-                  params: ({ event }: { event: Extract<GameEvent, { type: "NEXT_QUESTION" }> }) => ({
+                  params: ({
+                    event,
+                  }: {
+                    event: Extract<GameEvent, { type: "NEXT_QUESTION" }>;
+                  }) => ({
                     question: {
                       id: crypto.randomUUID(),
                       text: event.text,
@@ -466,12 +587,12 @@ export const gameMachine = setup({
                     } as Question,
                   }),
                 },
-                { 
-                  type: "setQuestionNumber", 
-                  params: ({ context }: { context: GameServerContext }) => ({ 
-                    number: context.public.questionNumber + 1 
-                  })
-                }
+                {
+                  type: "setQuestionNumber",
+                  params: ({ context }: { context: GameServerContext }) => ({
+                    number: context.public.questionNumber + 1,
+                  }),
+                },
               ],
             },
           },
@@ -492,8 +613,13 @@ export const gameMachine = setup({
               actions: "submitAnswer",
             },
             SKIP_QUESTION: {
-              guard: ({ context, event }: { context: GameServerContext; event: GameEvent }) => 
-                event.caller.id === context.public.hostId,
+              guard: ({
+                context,
+                event,
+              }: {
+                context: GameServerContext;
+                event: GameEvent;
+              }) => event.caller.id === context.public.hostId,
               target: "questionPrep",
               actions: "processQuestionResults",
             },
@@ -504,15 +630,24 @@ export const gameMachine = setup({
         JOIN_GAME: {
           actions: {
             type: "addPlayerToGame",
-            params: ({ event }: { event: Extract<GameEvent, { type: "JOIN_GAME" }> }) => ({
+            params: ({
+              event,
+            }: {
+              event: Extract<GameEvent, { type: "JOIN_GAME" }>;
+            }) => ({
               id: event.caller.id,
               name: event.playerName,
             }),
           },
         },
         END_GAME: {
-          guard: ({ context, event }: { context: GameServerContext; event: GameEvent }) => 
-            event.caller.id === context.public.hostId,
+          guard: ({
+            context,
+            event,
+          }: {
+            context: GameServerContext;
+            event: GameEvent;
+          }) => event.caller.id === context.public.hostId,
           target: "finished",
           actions: [
             { type: "updateGameStatus", params: { status: "finished" } },
@@ -520,11 +655,20 @@ export const gameMachine = setup({
           ],
         },
         REMOVE_PLAYER: {
-          guard: ({ context, event }: { context: GameServerContext; event: GameEvent }) => 
-            event.caller.id === context.public.hostId,
+          guard: ({
+            context,
+            event,
+          }: {
+            context: GameServerContext;
+            event: GameEvent;
+          }) => event.caller.id === context.public.hostId,
           actions: {
             type: "removePlayer",
-            params: ({ event }: { event: Extract<GameEvent, { type: "REMOVE_PLAYER" }> }) => ({
+            params: ({
+              event,
+            }: {
+              event: Extract<GameEvent, { type: "REMOVE_PLAYER" }>;
+            }) => ({
               playerId: event.playerId,
             }),
           },

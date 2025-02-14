@@ -1052,3 +1052,90 @@ export const MultipleChoiceAnswerSubmitted: Story = {
     expect(timeContainer).toBeInTheDocument();
   },
 };
+
+export const LongMultipleChoiceQuestion: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "active",
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "Which AI-powered humanoid robot became the first robot to be granted citizenship?",
+                correctAnswer: "Sophia by Hanson Robotics",
+                questionType: "multiple-choice",
+                options: [
+                  "Off-pump coronary artery bypass (OPCAB)",
+                  "Transcatheter aortic valve replacement (TAVR)",
+                  "Robotic-assisted angioplasty",
+                  "ECMO-supported surgery",
+                  "Endovascular coiling"
+                ],
+              },
+            },
+            currentQuestion: {
+              questionId: "q1",
+              startTime: Date.now() - 5000,
+              answers: [],
+            },
+            lastQuestionResult: null,
+            players: [
+              { id: "player-456", name: "Test Player", score: 0 },
+            ],
+            settings: {
+              maxPlayers: 10,
+              questionCount: 10,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { active: "questionActive" },
+        },
+      },
+    },
+  },
+  play: async ({ mount, canvas }) => {
+    await mount(<PlayerView />);
+
+    // Verify question display
+    const questionText = await canvas.findByText("Which AI-powered humanoid robot became the first robot to be granted citizenship?");
+    expect(questionText).toBeInTheDocument();
+
+    // Verify timer display
+    const timer = await canvas.findByTestId("question-timer");
+    expect(timer).toBeInTheDocument();
+    expect(timer).toHaveTextContent("25s");
+
+    // Verify multiple choice options are displayed and properly aligned
+    const options = await canvas.findAllByRole("button");
+    expect(options).toHaveLength(5);
+
+    // Verify each option has the correct layout
+    options.forEach((option) => {
+      const letterElement = option.querySelector(".text-indigo-400");
+      const textElement = option.querySelector(".text-left");
+      
+      expect(letterElement).toBeInTheDocument();
+      expect(textElement).toBeInTheDocument();
+      expect(option).toHaveClass(
+        "w-full",
+        "bg-gray-800/50",
+        "rounded-xl",
+        "border",
+        "border-gray-700/50"
+      );
+    });
+  },
+};

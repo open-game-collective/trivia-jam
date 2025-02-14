@@ -89,6 +89,7 @@ export type GamePublicContext = {
   questions: Record<string, Question>;
   questionResults: QuestionResult[];
   questionNumber: number;
+  parsingErrorMessage?: string;
 };
 
 export type GamePrivateContext = {};

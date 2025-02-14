@@ -147,7 +147,7 @@ export const ActiveQuestionNoAnswers: Story = {
                 id: "q1",
                 text: "What year was the Declaration of Independence signed?",
                 correctAnswer: 1776,
-                requireExactAnswer: false,
+                questionType: "numeric",
               },
             },
             currentQuestion: {
@@ -175,7 +175,7 @@ export const ActiveQuestionNoAnswers: Story = {
               id: "q1",
               text: "What year was the Declaration of Independence signed?",
               correctAnswer: 1776,
-              requireExactAnswer: false,
+              questionType: "numeric",
             },
           },
           currentQuestion: {
@@ -186,7 +186,6 @@ export const ActiveQuestionNoAnswers: Story = {
           players: createPlayers(10),
           settings: {
             maxPlayers: 10,
-            questionCount: 10,
             answerTimeWindow: 30,
           },
         },
@@ -230,7 +229,7 @@ export const ActiveQuestionWithAnswers: Story = {
                 id: "q1",
                 text: "What year was the Declaration of Independence signed?",
                 correctAnswer: 1776,
-                requireExactAnswer: false,
+                questionType: "numeric",
               },
             },
             currentQuestion: {
@@ -254,9 +253,7 @@ export const ActiveQuestionWithAnswers: Story = {
             players: createPlayers(10),
             settings: {
               maxPlayers: 10,
-              questionCount: 10,
               answerTimeWindow: 30,
-              requireExactAnswers: false,
             },
           },
           value: { active: "questionActive" },
@@ -285,7 +282,7 @@ export const QuestionResults: Story = {
                 id: "q1",
                 text: "What year was the Declaration of Independence signed?",
                 correctAnswer: 1776,
-                requireExactAnswer: false,
+                questionType: "numeric",
               },
             },
             currentQuestion: null,
@@ -331,9 +328,7 @@ export const QuestionResults: Story = {
             }),
             settings: {
               maxPlayers: 10,
-              questionCount: 10,
               answerTimeWindow: 30,
-              requireExactAnswers: false,
             },
           },
           value: { active: "questionPrep" },
@@ -355,7 +350,7 @@ export const QuestionResults: Story = {
               id: "q1",
               text: "What year was the Declaration of Independence signed?",
               correctAnswer: 1776,
-              requireExactAnswer: false,
+              questionType: "numeric",
             },
           },
           currentQuestion: null,
@@ -401,7 +396,6 @@ export const QuestionResults: Story = {
           }),
           settings: {
             maxPlayers: 10,
-            questionCount: 10,
             answerTimeWindow: 30,
           },
         },
@@ -471,9 +465,7 @@ export const GameFinished: Story = {
             questionResults: [],
             settings: {
               maxPlayers: 10,
-              questionCount: 10,
               answerTimeWindow: 30,
-              requireExactAnswers: false,
             },
           },
           value: "finished",
@@ -507,7 +499,6 @@ export const GameFinished: Story = {
           questionResults: [],
           settings: {
             maxPlayers: 10,
-            questionCount: 10,
             answerTimeWindow: 30,
           },
         },
@@ -572,9 +563,7 @@ export const WaitingForQuestion: Story = {
             }),
             settings: {
               maxPlayers: 10,
-              questionCount: 10,
               answerTimeWindow: 30,
-              requireExactAnswers: false,
             },
           },
           value: { active: "questionPrep" },
@@ -593,6 +582,100 @@ export const WaitingForQuestion: Story = {
     const heading = await canvas.findByRole('heading', { level: 1 });
     expect(heading).toBeInTheDocument();
     expect(heading).toHaveTextContent("Waiting for Question...");
+  },
+};
+
+export const ActiveMultipleChoiceQuestion: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": defaultSessionSnapshot,
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "active",
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "Which planet is known as the Red Planet?",
+                correctAnswer: "Mars",
+                questionType: "multiple-choice",
+                options: ["Venus", "Mars", "Jupiter", "Saturn"],
+              },
+            },
+            currentQuestion: {
+              questionId: "q1",
+              startTime: Date.now(),
+              answers: [],
+            },
+            players: createPlayers(10),
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvas, mount }) => {
+    const gameClient = createActorKitMockClient<GameMachine>({
+      initialSnapshot: {
+        ...defaultGameSnapshot,
+        public: {
+          ...defaultGameSnapshot.public,
+          id: "game-123",
+          hostId: "host-123",
+          gameStatus: "active",
+          questions: {
+            "q1": {
+              id: "q1",
+              text: "Which planet is known as the Red Planet?",
+              correctAnswer: "Mars",
+              questionType: "multiple-choice",
+              options: ["Venus", "Mars", "Jupiter", "Saturn"],
+            },
+          },
+          currentQuestion: {
+            questionId: "q1",
+            startTime: Date.now(),
+            answers: [],
+          },
+          players: createPlayers(10),
+          settings: {
+            maxPlayers: 10,
+            answerTimeWindow: 30,
+          },
+        },
+        value: { active: "questionActive" },
+      },
+    });
+
+    await mount(
+      <GameContext.ProviderFromClient client={gameClient}>
+        <SpectatorView host="dev.triviajam.tv" />
+      </GameContext.ProviderFromClient>
+    );
+
+    // Verify question display
+    const questionText = await canvas.findByText(
+      "Which planet is known as the Red Planet?"
+    );
+    expect(questionText).toBeInTheDocument();
+
+    // Verify options are displayed
+    const venus = await canvas.findByText("Venus");
+    expect(venus).toBeInTheDocument();
+    const mars = await canvas.findByText("Mars");
+    expect(mars).toBeInTheDocument();
+    const jupiter = await canvas.findByText("Jupiter");
+    expect(jupiter).toBeInTheDocument();
+    const saturn = await canvas.findByText("Saturn");
+    expect(saturn).toBeInTheDocument();
+
+    // Verify timer display
+    const timer = await canvas.findByTestId("question-timer");
+    expect(timer).toBeInTheDocument();
+    expect(timer).toHaveTextContent("30s");
   },
 };
 

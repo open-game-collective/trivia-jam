@@ -147,7 +147,7 @@ export const PlayerView = () => {
                 <div className="relative z-10 w-full max-w-xl">
                   {/* Timer */}
                   <motion.div
-                    className="text-7xl font-bold text-center text-indigo-400 mb-8"
+                    className="text-5xl sm:text-7xl font-bold text-center text-indigo-400 mb-8"
                     data-testid="question-timer"
                     animate={{
                       scale: timeLeft <= 5 ? [1, 1.1, 1] : 1,
@@ -163,8 +163,10 @@ export const PlayerView = () => {
 
                   {/* Question */}
                   <div className="text-center mb-8">
-                    <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-                      {questions[currentQuestion.questionId].text}
+                    <h1 className="text-2xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+                      {currentQuestion && questions[currentQuestion.questionId] ? 
+                        questions[currentQuestion.questionId].text : 
+                        'Loading question...'}
                     </h1>
                   </div>
 
@@ -175,13 +177,13 @@ export const PlayerView = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-4"
                     >
-                      {questions[currentQuestion.questionId].questionType === "multiple-choice" ? (
+                      {currentQuestion && questions[currentQuestion.questionId]?.questionType === "multiple-choice" ? (
                         <div className="space-y-3">
                           <div className="text-lg font-medium text-indigo-300 mb-2">
                             Choose your answer
                           </div>
                           <div className="grid grid-cols-1 gap-3">
-                            {questions[currentQuestion.questionId].options?.map((option, index) => (
+                            {questions[currentQuestion.questionId]?.options?.map((option, index) => (
                               <motion.button
                                 key={option}
                                 onClick={() => {
@@ -193,14 +195,18 @@ export const PlayerView = () => {
                                   setIsSubmitting(false);
                                 }}
                                 disabled={isSubmitting}
-                                className="w-full bg-gray-800/50 hover:bg-gray-700/50 text-white font-medium py-4 px-6 rounded-xl border border-gray-700/50 transition-all flex items-center gap-4"
+                                className="w-full bg-gray-800/50 hover:bg-gray-700/50 text-white font-medium py-4 px-6 rounded-xl border border-gray-700/50 transition-all"
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
                               >
-                                <span className="text-indigo-400 font-bold">
-                                  {String.fromCharCode(65 + index)}
-                                </span>
-                                <span className="text-lg">{option}</span>
+                                <div className="flex items-start gap-4">
+                                  <span className="text-indigo-400 font-bold">
+                                    {String.fromCharCode(65 + index)}
+                                  </span>
+                                  <span className="text-base sm:text-lg text-left">
+                                    {option}
+                                  </span>
+                                </div>
                               </motion.button>
                             ))}
                           </div>
@@ -256,10 +262,10 @@ export const PlayerView = () => {
                       className="text-center"
                       data-testid="answer-submitted"
                     >
-                      <div className="text-2xl font-bold text-indigo-400 mb-2">
+                      <div className="text-lg sm:text-2xl font-bold text-indigo-400 mb-2">
                         Answer Submitted!
                       </div>
-                      <div className="text-4xl font-bold text-white mb-4">
+                      <div className="text-2xl sm:text-4xl font-bold text-white mb-4">
                         {currentQuestion.answers.find(a => a.playerId === sessionState.userId)?.value}
                       </div>
                       <div className="text-xl text-white/60">
@@ -345,6 +351,8 @@ const LobbyDisplay = ({ player }: { player: Player }) => {
 const WaitingDisplay = ({ player }: { player: Player }) => {
   const [$showHelp] = useState(() => atom<boolean>(false));
   const showHelp = useStore($showHelp);
+  const gameState = GameContext.useSelector((state) => state.public);
+  const isFirstQuestion = gameState.questionResults.length === 0;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
@@ -373,7 +381,7 @@ const WaitingDisplay = ({ player }: { player: Player }) => {
         className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 text-center"
       >
         <h1 className="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-          Waiting for next question...
+          {isFirstQuestion ? "Waiting for first question..." : "Waiting for next question..."}
         </h1>
         <p className="text-xl text-white/70 mb-8">
           Get ready, {player.name}!
@@ -629,10 +637,10 @@ const QuestionResultsDisplay = ({
         >
           {/* Question and Answer */}
           <div className="text-center mb-12">
-            <h1 className="text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-6">
+            <h1 className="text-3xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-6">
               {question.text}
             </h1>
-            <div className="text-5xl font-bold text-green-400" data-testid="correct-answer">
+            <div className="text-3xl sm:text-5xl font-bold text-green-400" data-testid="correct-answer">
               {question.correctAnswer}
             </div>
           </div>

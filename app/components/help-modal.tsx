@@ -25,19 +25,19 @@ export function HelpModal({ $showHelp }: HelpModalProps) {
 
               <div className="space-y-6 text-white/90">
                 <div className="bg-white/10 rounded-xl p-6">
-                  <h3 className="text-2xl font-semibold mb-4 text-indigo-300">The Basics</h3>
+                  <h3 className="text-2xl font-semibold mb-4 text-indigo-300">Question Types</h3>
                   <ul className="space-y-4 text-lg">
                     <li className="flex items-start gap-3">
-                      <span className="text-2xl">1️⃣</span>
-                      <span>Questions will ask for a number as the answer</span>
+                      <span className="text-2xl">🔢</span>
+                      <span>Numeric questions: Type your answer</span>
                     </li>
                     <li className="flex items-start gap-3">
-                      <span className="text-2xl">2️⃣</span>
-                      <span>Type your answer and tap Submit</span>
+                      <span className="text-2xl">📝</span>
+                      <span>Multiple choice: Select from options</span>
                     </li>
                     <li className="flex items-start gap-3">
-                      <span className="text-2xl">3️⃣</span>
-                      <span>You have 25 seconds for each question</span>
+                      <span className="text-2xl">⏱️</span>
+                      <span>25 seconds to answer each question</span>
                     </li>
                   </ul>
                 </div>
@@ -47,11 +47,11 @@ export function HelpModal({ $showHelp }: HelpModalProps) {
                   <ul className="space-y-4 text-lg">
                     <li className="flex items-start gap-3">
                       <span className="text-2xl">🎯</span>
-                      <span>Getting the exact answer is best</span>
+                      <span>Numeric: Being closer to the answer earns more points</span>
                     </li>
                     <li className="flex items-start gap-3">
-                      <span className="text-2xl">👍</span>
-                      <span>Being close to the answer can still earn points</span>
+                      <span className="text-2xl">✅</span>
+                      <span>Multiple choice: Correct answers earn points</span>
                     </li>
                     <li className="flex items-start gap-3">
                       <span className="text-2xl">⚡️</span>
