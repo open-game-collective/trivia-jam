@@ -80,7 +80,7 @@ export type GamePublicContext = {
     startTime: number;
     answers: Answer[];
   } | null;
-  gameStatus: "lobby" | "active" | "finished";
+  // gameStatus: "lobby" | "active" | "finished";
   winner: string | null;
   settings: {
     maxPlayers: number;

@@ -135,7 +135,6 @@ export const ActiveQuestion: Story = {
         ...defaultGameSnapshot,
         public: {
           ...defaultGameSnapshot.public,
-          gameStatus: "active",
           questions: {
             "q1": {
               id: "q1",
@@ -322,7 +321,6 @@ export const QuestionResults: Story = {
           ...defaultGameSnapshot.public,
           id: "game-123",
           hostId: "host-123",
-          gameStatus: "active",
           questions: {
             "q1": {
               id: "q1",

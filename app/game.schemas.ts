@@ -27,10 +27,6 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("NEXT_QUESTION"),
-    text: z.string(),
-    correctAnswer: z.union([z.number(), z.string()]),
-    questionType: z.enum(["numeric", "multiple-choice"]),
-    options: z.array(z.string()).optional(),
   }),
   z.object({
     type: z.literal("END_GAME"),

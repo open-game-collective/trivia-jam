@@ -1,11 +1,11 @@
-import { AnimatePresence, motion } from "framer-motion";
-import { Check, Crown, Loader2, X, HelpCircle } from "lucide-react";
-import { useState, useEffect } from "react";
-import { GameContext } from "~/game.context";
-import { Answer, GamePublicContext } from "~/game.types";
-import { SessionContext } from "~/session.context";
-import { atom } from "nanostores";
 import { useStore } from "@nanostores/react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Crown, HelpCircle, Loader2 } from "lucide-react";
+import { atom } from "nanostores";
+import { useEffect, useState } from "react";
+import { GameContext } from "~/game.context";
+import { GamePublicContext } from "~/game.types";
+import { SessionContext } from "~/session.context";
 import { HelpModal } from "./help-modal";
 import { QuestionProgress } from "./question-progress";
 
@@ -14,7 +14,7 @@ const focusInput = (inputId: string) => {
     const input = document.getElementById(inputId);
     if (input) {
       input.focus();
-      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      input.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   }, 100);
 };
@@ -22,11 +22,15 @@ const focusInput = (inputId: string) => {
 export const PlayerView = () => {
   const gameState = GameContext.useSelector((state) => state);
   const sessionState = SessionContext.useSelector((state) => state.public);
-  const { gameStatus, currentQuestion, players, questions, settings, questionResults } = gameState.public;
+  const { currentQuestion, players, questions, settings, questionResults } =
+    gameState.public;
   const [answerInput, setAnswerInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const send = GameContext.useSend();
   const [timeLeft, setTimeLeft] = useState(0);
+  const isLobby = GameContext.useMatches("lobby");
+  const isActive = GameContext.useMatches("active");
+  const isFinished = GameContext.useMatches("finished");
 
   const player = players.find((p) => p.id === sessionState.userId);
   const hasAnswered = currentQuestion?.answers.some(
@@ -70,7 +74,7 @@ export const PlayerView = () => {
 
   useEffect(() => {
     if (currentQuestion && !hasAnswered) {
-      focusInput('answer');
+      focusInput("answer");
     }
   }, [currentQuestion, hasAnswered]);
 
@@ -79,14 +83,14 @@ export const PlayerView = () => {
 
     setIsSubmitting(true);
     const numericAnswer = parseFloat(answerInput);
-    
+
     if (!isNaN(numericAnswer)) {
       send({
         type: "SUBMIT_ANSWER",
         value: numericAnswer,
       });
     }
-    
+
     setAnswerInput("");
     setIsSubmitting(false);
   };
@@ -102,15 +106,15 @@ export const PlayerView = () => {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       <AnimatePresence mode="wait">
-        {gameStatus === "lobby" && <LobbyDisplay player={player} />}
+        {isLobby && <LobbyDisplay player={player} />}
 
-        {gameStatus === "active" && (
+        {isActive && (
           <>
-            <QuestionProgress 
-              current={gameState.public.questionNumber} 
-              total={Object.keys(gameState.public.questions).length} 
+            <QuestionProgress
+              current={gameState.public.questionNumber}
+              total={Object.keys(gameState.public.questions).length}
             />
-            
+
             {!currentQuestion && questionResults.length > 0 && (
               <QuestionResultsDisplay
                 player={player}
@@ -151,7 +155,10 @@ export const PlayerView = () => {
                     data-testid="question-timer"
                     animate={{
                       scale: timeLeft <= 5 ? [1, 1.1, 1] : 1,
-                      color: timeLeft <= 5 ? ["#818CF8", "#EF4444", "#818CF8"] : "#818CF8",
+                      color:
+                        timeLeft <= 5
+                          ? ["#818CF8", "#EF4444", "#818CF8"]
+                          : "#818CF8",
                     }}
                     transition={{
                       duration: 1,
@@ -164,9 +171,9 @@ export const PlayerView = () => {
                   {/* Question */}
                   <div className="text-center mb-8">
                     <h1 className="text-2xl sm:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-                      {currentQuestion && questions[currentQuestion.questionId] ? 
-                        questions[currentQuestion.questionId].text : 
-                        'Loading question...'}
+                      {currentQuestion && questions[currentQuestion.questionId]
+                        ? questions[currentQuestion.questionId].text
+                        : "Loading question..."}
                     </h1>
                   </div>
 
@@ -177,13 +184,17 @@ export const PlayerView = () => {
                       animate={{ opacity: 1, y: 0 }}
                       className="space-y-4"
                     >
-                      {currentQuestion && questions[currentQuestion.questionId]?.questionType === "multiple-choice" ? (
+                      {currentQuestion &&
+                      questions[currentQuestion.questionId]?.questionType ===
+                        "multiple-choice" ? (
                         <div className="space-y-3">
                           <div className="text-lg font-medium text-indigo-300 mb-2">
                             Choose your answer
                           </div>
                           <div className="grid grid-cols-1 gap-3">
-                            {questions[currentQuestion.questionId]?.options?.map((option, index) => (
+                            {questions[
+                              currentQuestion.questionId
+                            ]?.options?.map((option, index) => (
                               <motion.button
                                 key={option}
                                 onClick={() => {
@@ -213,7 +224,10 @@ export const PlayerView = () => {
                         </div>
                       ) : (
                         <div>
-                          <label htmlFor="answer" className="block text-lg font-medium text-indigo-300 mb-2">
+                          <label
+                            htmlFor="answer"
+                            className="block text-lg font-medium text-indigo-300 mb-2"
+                          >
                             Your Answer
                           </label>
                           <input
@@ -223,7 +237,10 @@ export const PlayerView = () => {
                             pattern="[0-9]*"
                             value={answerInput}
                             onChange={(e) => {
-                              const value = e.target.value.replace(/[^\d.-]/g, '');
+                              const value = e.target.value.replace(
+                                /[^\d.-]/g,
+                                ""
+                              );
                               setAnswerInput(value);
                             }}
                             className="w-full bg-gray-800/50 rounded-xl p-4 text-white text-xl"
@@ -231,7 +248,7 @@ export const PlayerView = () => {
                             autoComplete="off"
                             ref={(input) => {
                               if (input && !hasAnswered) {
-                                focusInput('answer');
+                                focusInput("answer");
                               }
                             }}
                           />
@@ -239,9 +256,21 @@ export const PlayerView = () => {
                             onClick={handleSubmitAnswer}
                             disabled={isSubmitting || !answerInput}
                             className={`w-full mt-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
-                              ${!isSubmitting && answerInput ? "hover:from-indigo-500 hover:to-purple-500" : "opacity-50 cursor-not-allowed"}`}
-                            whileHover={!isSubmitting && answerInput ? { scale: 1.02 } : {}}
-                            whileTap={!isSubmitting && answerInput ? { scale: 0.98 } : {}}
+                              ${
+                                !isSubmitting && answerInput
+                                  ? "hover:from-indigo-500 hover:to-purple-500"
+                                  : "opacity-50 cursor-not-allowed"
+                              }`}
+                            whileHover={
+                              !isSubmitting && answerInput
+                                ? { scale: 1.02 }
+                                : {}
+                            }
+                            whileTap={
+                              !isSubmitting && answerInput
+                                ? { scale: 0.98 }
+                                : {}
+                            }
                           >
                             {isSubmitting ? (
                               <>
@@ -266,10 +295,19 @@ export const PlayerView = () => {
                         Answer Submitted!
                       </div>
                       <div className="text-2xl sm:text-4xl font-bold text-white mb-4">
-                        {currentQuestion.answers.find(a => a.playerId === sessionState.userId)?.value}
+                        {
+                          currentQuestion.answers.find(
+                            (a) => a.playerId === sessionState.userId
+                          )?.value
+                        }
                       </div>
                       <div className="text-xl text-white/60">
-                        {((currentQuestion.answers.find(a => a.playerId === sessionState.userId)?.timestamp || 0) - currentQuestion.startTime) / 1000}s
+                        {((currentQuestion.answers.find(
+                          (a) => a.playerId === sessionState.userId
+                        )?.timestamp || 0) -
+                          currentQuestion.startTime) /
+                          1000}
+                        s
                       </div>
                     </motion.div>
                   )}
@@ -279,7 +317,7 @@ export const PlayerView = () => {
           </>
         )}
 
-        {gameStatus === "finished" && <GameFinishedDisplay player={player} />}
+        {isFinished && <GameFinishedDisplay player={player} />}
       </AnimatePresence>
     </div>
   );
@@ -381,11 +419,11 @@ const WaitingDisplay = ({ player }: { player: Player }) => {
         className="relative z-10 bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50 text-center"
       >
         <h1 className="text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-          {isFirstQuestion ? "Waiting for first question..." : "Waiting for next question..."}
+          {isFirstQuestion
+            ? "Waiting for first question..."
+            : "Waiting for next question..."}
         </h1>
-        <p className="text-xl text-white/70 mb-8">
-          Get ready, {player.name}!
-        </p>
+        <p className="text-xl text-white/70 mb-8">Get ready, {player.name}!</p>
         <Loader2 className="w-12 h-12 animate-spin mx-auto text-indigo-400 mb-8" />
 
         {/* Add Help Button */}
@@ -445,7 +483,9 @@ const GameFinishedDisplay = ({ player }: { player: Player }) => (
             <span className="text-2xl font-bold text-indigo-400">#{1}</span>
             <span className="font-medium">{player.name}</span>
           </div>
-          <span className="text-xl font-bold text-indigo-400">{player.score}</span>
+          <span className="text-xl font-bold text-indigo-400">
+            {player.score}
+          </span>
         </div>
       </div>
     </motion.div>
@@ -462,7 +502,7 @@ const NameEntryForm = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Client-side validation
     if (!name.trim()) {
       setError("Please enter your name");
@@ -478,7 +518,7 @@ const NameEntryForm = () => {
     }
 
     setIsSubmitting(true);
-    send({ 
+    send({
       type: "JOIN_GAME",
       playerName: name.trim(),
     });
@@ -515,7 +555,10 @@ const NameEntryForm = () => {
         </h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="playerName" className="block text-sm font-medium text-indigo-300 mb-2">
+            <label
+              htmlFor="playerName"
+              className="block text-sm font-medium text-indigo-300 mb-2"
+            >
               Your Name
             </label>
             <input
@@ -594,12 +637,12 @@ const QuestionResultsDisplay = ({
   questionResults,
 }: {
   player: Player;
-  questions: GamePublicContext['questions'];
-  questionResults: GamePublicContext['questionResults'];
+  questions: GamePublicContext["questions"];
+  questionResults: GamePublicContext["questionResults"];
 }) => {
   const latestResult = questionResults[questionResults.length - 1];
   const question = latestResult ? questions[latestResult.questionId] : null;
-  
+
   if (!latestResult || !question) return null;
 
   // Sort by points first, then by time for equal points
@@ -630,7 +673,7 @@ const QuestionResultsDisplay = ({
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-4xl mx-auto">
-        <motion.div 
+        <motion.div
           className="mb-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -640,7 +683,10 @@ const QuestionResultsDisplay = ({
             <h1 className="text-3xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-6">
               {question.text}
             </h1>
-            <div className="text-3xl sm:text-5xl font-bold text-green-400" data-testid="correct-answer">
+            <div
+              className="text-3xl sm:text-5xl font-bold text-green-400"
+              data-testid="correct-answer"
+            >
               {question.correctAnswer}
             </div>
           </div>
@@ -650,43 +696,56 @@ const QuestionResultsDisplay = ({
             <h2 className="text-3xl font-bold text-indigo-300 mb-6">Results</h2>
             <div className="space-y-4">
               {sortedScores.map((score) => {
-                const answer = latestResult.answers.find(a => a.playerId === score.playerId);
+                const answer = latestResult.answers.find(
+                  (a) => a.playerId === score.playerId
+                );
                 if (!answer) return null;
 
                 const isCurrentPlayer = score.playerId === player.id;
-                const isExact = question.questionType === "numeric" ? 
-                  Number(answer.value) === Number(question.correctAnswer) :
-                  answer.value === question.correctAnswer;
-                const isClose = question.questionType === "numeric" && 
-                  typeof answer.value !== 'undefined' && 
-                  typeof question.correctAnswer !== 'undefined' ? 
-                  Math.abs(Number(answer.value) - Number(question.correctAnswer)) / Number(question.correctAnswer) < 0.1 : 
-                  false; // Within 10%
+                const isExact =
+                  question.questionType === "numeric"
+                    ? Number(answer.value) === Number(question.correctAnswer)
+                    : answer.value === question.correctAnswer;
+                const isClose =
+                  question.questionType === "numeric" &&
+                  typeof answer.value !== "undefined" &&
+                  typeof question.correctAnswer !== "undefined"
+                    ? Math.abs(
+                        Number(answer.value) - Number(question.correctAnswer)
+                      ) /
+                        Number(question.correctAnswer) <
+                      0.1
+                    : false; // Within 10%
 
                 return (
                   <div
                     key={answer.playerId}
                     data-testid={`player-result-${answer.playerId}`}
                     className={`${
-                      score && score.points > 0 ? 'bg-green-500/10 border border-green-500/30' : 
-                      isClose ? 'bg-yellow-500/10 border border-yellow-500/30' :
-                      'bg-gray-900/50'
+                      score && score.points > 0
+                        ? "bg-green-500/10 border border-green-500/30"
+                        : isClose
+                        ? "bg-yellow-500/10 border border-yellow-500/30"
+                        : "bg-gray-900/50"
                     } rounded-2xl p-6 flex items-center gap-6 ${
-                      isCurrentPlayer ? 'bg-indigo-500/10' : ''
+                      isCurrentPlayer ? "bg-indigo-500/10" : ""
                     }`}
                   >
                     <div className="text-2xl font-bold text-indigo-400 w-12 text-center">
                       {score && score.points > 0 ? `#${score.position}` : "―"}
                     </div>
                     <div className="flex-1">
-                      <div className="text-xl font-medium">{answer.playerName}</div>
+                      <div className="text-xl font-medium">
+                        {answer.playerName}
+                      </div>
                       <div className="text-sm text-gray-400">
                         {answer.value} • {score.timeTaken.toFixed(1)}s
                       </div>
                     </div>
                     {score.points > 0 && (
                       <div className="text-2xl font-bold text-indigo-400">
-                        {score.points} <span className="text-indigo-400/70">pts</span>
+                        {score.points}{" "}
+                        <span className="text-indigo-400/70">pts</span>
                       </div>
                     )}
                   </div>

@@ -22,6 +22,11 @@ For multiple choice questions:
 2. You must map that letter to the FULL TEXT of the corresponding option
 3. You must include ALL options in the options array
 4. The options must be extracted exactly as written, preserving their order
+5. The question text should NOT include the options - extract only the question itself
+6. For example, given:
+   "What major canal opened in 1914? a) Suez Canal b) Panama Canal c) Erie Canal d) English Channel"
+   The question text should be: "What major canal opened in 1914?"
+   And options array should be: ["Suez Canal", "Panama Canal", "Erie Canal", "English Channel"]
 
 For numeric questions:
 1. The answer should be converted to a number
@@ -52,9 +57,23 @@ function validateMultipleChoiceAnswer(question: any): void {
 }
 
 function extractOptionsFromText(text: string): string[] {
-  const optionsMatch = text.match(/[a-d]\)(.*?)(?=[a-d]\)|$)/gi);
+  // Extract options that appear after the question mark
+  const questionParts = text.split('?');
+  if (questionParts.length < 2) return [];
+  
+  const optionsText = questionParts[1].trim();
+  const optionsMatch = optionsText.match(/[a-d]\)(.*?)(?=[a-d]\)|$)/gi);
   if (!optionsMatch) return [];
   return optionsMatch.map(opt => opt.replace(/^[a-d]\)\s*/, '').trim());
+}
+
+function extractQuestionText(text: string): string {
+  // For multiple choice, only take the text up to the question mark
+  const questionParts = text.split('?');
+  if (questionParts.length > 1) {
+    return questionParts[0].trim() + '?';
+  }
+  return text.trim();
 }
 
 export async function parseQuestions(

@@ -25,37 +25,44 @@ export function HelpModal({ $showHelp }: HelpModalProps) {
 
               <div className="space-y-6 text-white/90">
                 <div className="bg-white/10 rounded-xl p-6">
-                  <h3 className="text-2xl font-semibold mb-4 text-indigo-300">Question Types</h3>
+                  <h3 className="text-2xl font-semibold mb-4 text-indigo-300">Multiple Choice Questions</h3>
                   <ul className="space-y-4 text-lg">
                     <li className="flex items-start gap-3">
-                      <span className="text-2xl">🔢</span>
-                      <span>Numeric questions: Type your answer</span>
-                    </li>
-                    <li className="flex items-start gap-3">
                       <span className="text-2xl">📝</span>
-                      <span>Multiple choice: Select from options</span>
+                      <span>Select one of the options</span>
                     </li>
                     <li className="flex items-start gap-3">
-                      <span className="text-2xl">⏱️</span>
-                      <span>25 seconds to answer each question</span>
+                      <span className="text-2xl">🎯</span>
+                      <div>
+                        <strong className="text-indigo-300">Scoring:</strong>
+                        <ul className="mt-1 ml-2 space-y-1">
+                          <li>• First correct answer: 4 points</li>
+                          <li>• Second correct answer: 3 points</li>
+                          <li>• Third correct answer: 2 points</li>
+                          <li>• Other correct answers: 1 point</li>
+                        </ul>
+                      </div>
                     </li>
                   </ul>
                 </div>
 
                 <div className="bg-white/10 rounded-xl p-6">
-                  <h3 className="text-2xl font-semibold mb-4 text-indigo-300">Scoring</h3>
+                  <h3 className="text-2xl font-semibold mb-4 text-indigo-300">Free Entry Questions</h3>
                   <ul className="space-y-4 text-lg">
                     <li className="flex items-start gap-3">
-                      <span className="text-2xl">🎯</span>
-                      <span>Numeric: Being closer to the answer earns more points</span>
+                      <span className="text-2xl">✍️</span>
+                      <span>Type in your answer</span>
                     </li>
                     <li className="flex items-start gap-3">
-                      <span className="text-2xl">✅</span>
-                      <span>Multiple choice: Correct answers earn points</span>
-                    </li>
-                    <li className="flex items-start gap-3">
-                      <span className="text-2xl">⚡️</span>
-                      <span>Faster answers win ties</span>
+                      <span className="text-2xl">📊</span>
+                      <div>
+                        <strong className="text-indigo-300">Scoring:</strong>
+                        <ul className="mt-1 ml-2 space-y-1">
+                          <li>• Exact answers get top points, ordered by speed</li>
+                          <li>• Close answers score based on accuracy</li>
+                          <li>• Top 3 closest answers get 4-3-2 points</li>
+                        </ul>
+                      </div>
                     </li>
                   </ul>
                 </div>

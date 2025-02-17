@@ -1,13 +1,12 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
-  ChevronRight,
   Copy,
   Loader2,
   Settings,
   Trophy,
   Users,
-  X,
+  X
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import * as Drawer from "vaul";
@@ -61,16 +60,12 @@ export const HostView = ({
 }) => {
   const gameState = GameContext.useSelector((state) => state.public);
   const sessionState = SessionContext.useSelector((state) => state.public);
-  const {
-    gameStatus,
-    currentQuestion,
-    players,
-    hostId,
-    id,
-    questions,
-    questionResults,
-  } = gameState;
+  const { currentQuestion, players, hostId, id, questions, questionResults } =
+    gameState;
   const send = GameContext.useSend();
+  const isActive = GameContext.useMatches("active");
+  const isFinished = GameContext.useMatches("finished");
+  const isLobby = GameContext.useMatches("lobby");
 
   const lastQuestionResult = questionResults[questionResults.length - 1];
 
@@ -139,14 +134,14 @@ export const HostView = ({
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      {gameStatus === "active" && (
+      {isActive && (
         <QuestionProgress
           current={gameState.questionNumber}
           total={Object.keys(gameState.questions).length}
         />
       )}
       <AnimatePresence mode="wait">
-        {gameStatus === "lobby" && (
+        {isLobby && (
           <LobbyControls
             players={players}
             onStartGame={() => send({ type: "START_GAME" })}
@@ -154,7 +149,7 @@ export const HostView = ({
           />
         )}
 
-        {gameStatus === "active" && (
+        {isActive && (
           <>
             <div className="min-h-screen flex flex-col items-center pt-16 p-4 relative">
               {/* Background gradient */}
@@ -288,7 +283,7 @@ export const HostView = ({
           </>
         )}
 
-        {gameStatus === "finished" && <GameFinishedDisplay players={players} />}
+        {isFinished && <GameFinishedDisplay players={players} />}
       </AnimatePresence>
     </div>
   );
@@ -625,7 +620,9 @@ const LobbyControls = ({
               Import Questions
             </h2>
             <p className="text-indigo-300/70 text-sm mb-4">
-              Add your trivia questions below. You can use numeric questions (with exact answers) or multiple choice questions. Each question should be followed by its answer.
+              Add your trivia questions below. You can use numeric questions
+              (with exact answers) or multiple choice questions. Each question
+              should be followed by its answer.
             </p>
             <div className="bg-gray-900/30 rounded-xl p-6 border border-gray-700/50">
               {isParsingDocument ? (
@@ -921,9 +918,15 @@ const QuestionControls = ({
   players: Array<{ id: string; name: string; score: number }>;
 }) => {
   const send = GameContext.useSend();
-  const gameState = GameContext.useSelector((state) => state.public);
-  const lastQuestionResult = gameState.questionResults[gameState.questionResults.length - 1];
-  const isLastQuestion = gameState.questionNumber >= Object.keys(gameState.questions).length;
+  const answerTimeWindow = GameContext.useSelector((state) => state.public.settings.answerTimeWindow);
+  const questions = GameContext.useSelector((state) => state.public.questions);
+  const questionNumber = GameContext.useSelector((state) => state.public.questionNumber);
+  const hostId = GameContext.useSelector((state) => state.public.hostId);
+  const lastQuestionResult = GameContext.useSelector((state) => {
+    const results = state.public.questionResults;
+    return results[results.length - 1];
+  });
+  const isLastQuestion = questionNumber >= Object.keys(questions).length;
 
   // Add timer state
   const [timeLeft, setTimeLeft] = useState(0);
@@ -937,7 +940,7 @@ const QuestionControls = ({
         0,
         Math.ceil(
           (currentQuestion.startTime +
-            gameState.settings.answerTimeWindow * 1000 -
+            answerTimeWindow * 1000 -
             Date.now()) /
             1000
         )
@@ -956,15 +959,15 @@ const QuestionControls = ({
     }, 100);
 
     return () => clearInterval(timer);
-  }, [currentQuestion, gameState.settings.answerTimeWindow]);
+  }, [currentQuestion, answerTimeWindow]);
 
   // Get the current question text from questions collection
   const currentQuestionText = currentQuestion
-    ? gameState.questions[currentQuestion.questionId]?.text
+    ? questions[currentQuestion.questionId]?.text
     : null;
 
-  // Get next unanswered question
-  const nextQuestion = Object.values(gameState.questions)[gameState.questionNumber - 1];
+  // Get next unanswered question - fix to handle first question
+  const nextQuestion = Object.values(questions)[questionNumber] || {};
 
   return (
     <div className="min-h-screen flex flex-col items-center pt-16 p-4 relative">
@@ -1026,10 +1029,7 @@ const QuestionControls = ({
               <div>
                 <div className="text-sm text-white/60 mb-1">Correct Answer</div>
                 <div className="text-xl font-bold text-green-400">
-                  {
-                    gameState.questions[currentQuestion.questionId]
-                      ?.correctAnswer
-                  }
+                  {questions[currentQuestion.questionId]?.correctAnswer}
                 </div>
               </div>
             </div>
@@ -1042,8 +1042,7 @@ const QuestionControls = ({
                 </h3>
                 <div className="space-y-2">
                   {currentQuestion.answers.map((answer) => {
-                    const question =
-                      gameState.questions[currentQuestion.questionId];
+                    const question = questions[currentQuestion.questionId];
                     const answerValue =
                       typeof answer.value === "number" ? answer.value : 0;
                     const correctAnswerValue =
@@ -1198,10 +1197,6 @@ const QuestionControls = ({
                         if (!nextQuestion) return;
                         send({
                           type: "NEXT_QUESTION",
-                          text: nextQuestion.text,
-                          correctAnswer: nextQuestion.correctAnswer,
-                          questionType: nextQuestion.questionType,
-                          options: nextQuestion.options
                         });
                       }}
                       className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-purple-500"
@@ -1229,9 +1224,7 @@ const QuestionControls = ({
                         {nextQuestion.text}
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm text-white/60">
-                          Answer:
-                        </span>
+                        <span className="text-sm text-white/60">Answer:</span>
                         <span className="text-lg font-medium text-green-400">
                           {nextQuestion.correctAnswer}
                         </span>
@@ -1272,10 +1265,6 @@ const QuestionControls = ({
                     if (!nextQuestion) return;
                     send({
                       type: "NEXT_QUESTION",
-                      text: nextQuestion.text,
-                      correctAnswer: nextQuestion.correctAnswer,
-                      questionType: nextQuestion.questionType,
-                      options: nextQuestion.options
                     });
                   }}
                   className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-purple-500"
@@ -1292,7 +1281,7 @@ const QuestionControls = ({
         {/* Player List */}
         <PlayerList
           players={players}
-          hostId={gameState.hostId}
+          hostId={hostId}
           onRemovePlayer={(playerId) =>
             send({ type: "REMOVE_PLAYER", playerId })
           }

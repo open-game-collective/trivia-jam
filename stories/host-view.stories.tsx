@@ -341,7 +341,6 @@ export const QuestionResults: Story = {
           ...defaultGameSnapshot.public,
           id: "game-123",
           hostId: "host-123",
-          gameStatus: "active",
           questionNumber: 1,
           settings: {
             maxPlayers: 20,
@@ -1125,7 +1124,6 @@ export const LastQuestionResults: Story = {
           ...defaultGameSnapshot.public,
           id: "game-123",
           hostId: "host-123",
-          gameStatus: "active",
           questionNumber: 6,
           settings: {
             maxPlayers: 20,
@@ -1365,5 +1363,147 @@ export const NextQuestionPreview: Story = {
     const nextButton = await canvas.findByRole("button", { name: /start next question/i });
     expect(nextButton).toBeInTheDocument();
     expect(nextButton).toBeEnabled();
+  },
+};
+
+export const FirstQuestionActive: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            id: "game-123",
+            hostId: "host-123",
+            gameStatus: "active",
+            questionNumber: 1,
+            players: [
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "What year was the Declaration of Independence signed?",
+                correctAnswer: 1776,
+                questionType: "numeric"
+              },
+              "q2": {
+                id: "q2",
+                text: "How many bones are in the human body?",
+                correctAnswer: 206,
+                questionType: "numeric"
+              }
+            },
+            currentQuestion: {
+              questionId: "q1",
+              startTime: Date.now() - 2000, // Started 2 seconds ago
+              answers: []
+            },
+            questionResults: [],
+            settings: {
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { active: "questionActive" },
+        },
+      },
+    },
+  },
+  play: async ({ canvas, mount }) => {
+    await mount(<HostView host="dev.triviajam.tv" />);
+
+    // Verify the current question is displayed
+    const questionText = await canvas.findByText("What year was the Declaration of Independence signed?");
+    expect(questionText).toBeInTheDocument();
+
+    // Verify the correct answer is shown
+    const correctAnswer = await canvas.findByText("1776");
+    expect(correctAnswer).toBeInTheDocument();
+
+    // Verify the timer is shown and counting down
+    const timer = await canvas.findByText(/\d+s/);
+    expect(timer).toBeInTheDocument();
+    expect(Number(timer.textContent?.replace('s', ''))).toBeLessThanOrEqual(30);
+  },
+};
+
+export const FirstQuestionPrep: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "host-123",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            id: "game-123",
+            hostId: "host-123",
+            gameStatus: "active",
+            questionNumber: 0,
+            players: [
+              { id: "player-1", name: "Player 1", score: 0 },
+              { id: "player-2", name: "Player 2", score: 0 },
+            ],
+            questions: {
+              "q1": {
+                id: "q1",
+                text: "What year was the Declaration of Independence signed?",
+                correctAnswer: 1776,
+                questionType: "numeric"
+              },
+              "q2": {
+                id: "q2",
+                text: "How many bones are in the human body?",
+                correctAnswer: 206,
+                questionType: "numeric"
+              }
+            },
+            currentQuestion: null,
+            questionResults: [],
+            settings: {
+              maxPlayers: 20,
+              answerTimeWindow: 30,
+            },
+          },
+          value: { active: "questionPrep" },
+        },
+      },
+    },
+  },
+  play: async ({ canvas, mount }) => {
+    await mount(<HostView host="dev.triviajam.tv" />);
+
+    // Verify the first question preview is shown
+    const questionText = await canvas.findByText("What year was the Declaration of Independence signed?");
+    expect(questionText).toBeInTheDocument();
+
+    // Verify the correct answer is shown
+    const correctAnswer = await canvas.findByText("1776");
+    expect(correctAnswer).toBeInTheDocument();
+
+    // Verify the start first question button is shown
+    const startButton = await canvas.findByRole("button", { name: /start first question/i });
+    expect(startButton).toBeInTheDocument();
+    expect(startButton).toBeEnabled();
   },
 }; 
