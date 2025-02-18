@@ -1137,3 +1137,74 @@ export const LongMultipleChoiceQuestion: Story = {
     });
   },
 };
+
+export const GameFinished: Story = {
+  parameters: {
+    actorKit: {
+      session: {
+        "session-123": {
+          ...defaultSessionSnapshot,
+          public: {
+            ...defaultSessionSnapshot.public,
+            userId: "player-456",
+          },
+        },
+      },
+      game: {
+        "game-123": {
+          ...defaultGameSnapshot,
+          public: {
+            ...defaultGameSnapshot.public,
+            gameStatus: "finished",
+            winner: "player-1",
+            players: [
+              { id: "player-1", name: "Player 1", score: 15 },
+              { id: "player-2", name: "Player 2", score: 12 },
+              { id: "player-3", name: "Player 3", score: 9 },
+              { id: "player-456", name: "You", score: 7 }, // Current player
+              { id: "player-5", name: "Player 5", score: 5 },
+              { id: "player-6", name: "Player 6", score: 4 },
+              { id: "player-7", name: "Player 7", score: 3 },
+              { id: "player-8", name: "Player 8", score: 2 },
+              { id: "player-9", name: "Player 9", score: 1 },
+              { id: "player-10", name: "Player 10", score: 0 },
+            ],
+          },
+          value: "finished",
+        },
+      },
+    },
+  },
+  play: async ({ mount, canvas }) => {
+    await mount(<PlayerView />);
+
+    // Verify game over title
+    const gameOverTitle = await canvas.findByText("Game Over!");
+    expect(gameOverTitle).toBeInTheDocument();
+
+    // Verify winner announcement
+    const winnerName = await canvas.findByText("Player 1 Wins!");
+    expect(winnerName).toBeInTheDocument();
+    const winnerScore = await canvas.findByText("with 15 points");
+    expect(winnerScore).toBeInTheDocument();
+
+    // Verify all players are shown
+    for (let i = 1; i <= 10; i++) {
+      const playerName = i === 4 ? "You" : `Player ${i}`;
+      const playerElement = await canvas.findByText(playerName);
+      expect(playerElement).toBeInTheDocument();
+    }
+
+    // Verify medals for top 3
+    const goldMedal = await canvas.findByText("🥇");
+    expect(goldMedal).toBeInTheDocument();
+    const silverMedal = await canvas.findByText("🥈");
+    expect(silverMedal).toBeInTheDocument();
+    const bronzeMedal = await canvas.findByText("🥉");
+    expect(bronzeMedal).toBeInTheDocument();
+
+    // Verify current player (You) is highlighted
+    const currentPlayerRow = (await canvas.findByText("You")).closest("div[class*='bg-indigo-500/10']");
+    expect(currentPlayerRow).toBeInTheDocument();
+  },
+};

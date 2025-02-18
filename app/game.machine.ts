@@ -378,9 +378,20 @@ export const gameMachine = setup({
             },
           },
           on: {
-            SUBMIT_ANSWER: {
-              actions: "submitAnswer",
-            },
+            SUBMIT_ANSWER: [
+              {
+                guard: ({ context, event }: { context: GameServerContext; event: GameEvent }) => {
+                  return !!(context.public.currentQuestion && 
+                    context.public.players.length > 0 &&
+                    context.public.currentQuestion.answers.length + 1 === context.public.players.length);
+                },
+                target: "questionPrep",
+                actions: ["submitAnswer", "processQuestionResults"]
+              },
+              {
+                actions: "submitAnswer"
+              }
+            ],
             SKIP_QUESTION: {
               guard: ({
                 context,

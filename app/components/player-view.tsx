@@ -445,52 +445,94 @@ const WaitingDisplay = ({ player }: { player: Player }) => {
   );
 };
 
-const GameFinishedDisplay = ({ player }: { player: Player }) => (
-  <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
-    {/* Background Animation */}
-    <div className="absolute inset-0 overflow-hidden">
-      <div className="absolute inset-0 opacity-10">
-        <motion.div
-          className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
-          animate={{
-            rotate: [0, 360],
-            scale: [1, 1.2, 1],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear",
-          }}
-        />
-      </div>
-    </div>
+const GameFinishedDisplay = ({ player }: { player: Player }) => {
+  const gameState = GameContext.useSelector((state) => state.public);
+  // Sort players by score in descending order
+  const sortedPlayers = [...gameState.players].sort((a, b) => b.score - a.score);
+  const winner = sortedPlayers[0];
 
-    <motion.div
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
-    >
-      <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-        Game Over!
-      </h1>
-
-      <div className="space-y-3 mb-8">
-        <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
-          <Crown className="w-6 h-6" /> Final Scores
-        </h2>
-        <div className="flex justify-between items-center p-4 rounded-xl border bg-indigo-500/20 border-indigo-500/30">
-          <div className="flex items-center gap-3">
-            <span className="text-2xl font-bold text-indigo-400">#{1}</span>
-            <span className="font-medium">{player.name}</span>
-          </div>
-          <span className="text-xl font-bold text-indigo-400">
-            {player.score}
-          </span>
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
+      {/* Background Animation */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <motion.div
+            className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500"
+            animate={{
+              rotate: [0, 360],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "linear",
+            }}
+          />
         </div>
       </div>
-    </motion.div>
-  </div>
-);
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
+      >
+        <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+          Game Over!
+        </h1>
+
+        {/* Winner announcement section */}
+        <div className="text-center mb-12">
+          <div className="text-8xl mb-6">👑</div>
+          <h2 className="text-4xl font-bold text-indigo-300 mb-4">
+            {winner.name} Wins!
+          </h2>
+          <p className="text-2xl text-indigo-300/70">
+            with {winner.score} points
+          </p>
+        </div>
+
+        {/* Final Scores Section */}
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-indigo-300 flex items-center justify-center gap-3 mb-6">
+            <Crown className="w-6 h-6" /> Final Scores
+          </h2>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+            {sortedPlayers.map((p, index) => (
+              <motion.div
+                key={p.id}
+                initial={{ opacity: 0, x: -20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.1 }}
+                className={`flex justify-between items-center p-4 rounded-xl border ${
+                  index === 0
+                    ? "bg-yellow-500/10 border-yellow-500/30"
+                    : index === 1
+                    ? "bg-gray-400/10 border-gray-400/30"
+                    : index === 2
+                    ? "bg-amber-600/10 border-amber-600/30"
+                    : "bg-gray-800/30 border-gray-700/30"
+                } ${p.id === player.id ? "bg-indigo-500/10" : ""}`}
+              >
+                <div className="flex items-center gap-4">
+                  <span className="text-2xl font-bold min-w-[40px]">
+                    {index === 0 ? "🥇" : index === 1 ? "🥈" : index === 2 ? "🥉" : `#${index + 1}`}
+                  </span>
+                  <span className="font-medium text-xl">{p.name}</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-2xl font-bold text-indigo-400">
+                    {p.score}
+                  </span>
+                  <span className="text-indigo-400/70 text-sm">pts</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+};
 
 const NameEntryForm = () => {
   const [name, setName] = useState("");
@@ -652,7 +694,7 @@ const QuestionResultsDisplay = ({
   });
 
   return (
-    <div className="min-h-screen flex flex-col items-center pt-16 p-4 relative">
+    <div className="min-h-screen flex flex-col items-center pt-8 sm:pt-16 p-3 sm:p-4 relative">
       {/* Background gradient */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute inset-0 opacity-10">
@@ -674,17 +716,17 @@ const QuestionResultsDisplay = ({
       {/* Content */}
       <div className="relative z-10 w-full max-w-4xl mx-auto">
         <motion.div
-          className="mb-8"
+          className="mb-4 sm:mb-8"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
           {/* Question and Answer */}
-          <div className="text-center mb-12">
-            <h1 className="text-3xl sm:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-6">
+          <div className="text-center mb-6 sm:mb-12">
+            <h1 className="text-xl sm:text-3xl md:text-6xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 mb-4 sm:mb-6">
               {question.text}
             </h1>
             <div
-              className="text-3xl sm:text-5xl font-bold text-green-400"
+              className="text-2xl sm:text-3xl md:text-5xl font-bold text-green-400"
               data-testid="correct-answer"
             >
               {question.correctAnswer}
@@ -692,9 +734,9 @@ const QuestionResultsDisplay = ({
           </div>
 
           {/* Results */}
-          <div className="bg-gray-800/30 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/50">
-            <h2 className="text-3xl font-bold text-indigo-300 mb-6">Results</h2>
-            <div className="space-y-4">
+          <div className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-8 border border-gray-700/50">
+            <h2 className="text-2xl font-bold text-indigo-300 mb-4 sm:mb-6">Results</h2>
+            <div className="space-y-3 sm:space-y-4">
               {sortedScores.map((score) => {
                 const answer = latestResult.answers.find(
                   (a) => a.playerId === score.playerId
@@ -715,7 +757,7 @@ const QuestionResultsDisplay = ({
                       ) /
                         Number(question.correctAnswer) <
                       0.1
-                    : false; // Within 10%
+                    : false;
 
                 return (
                   <div
@@ -727,23 +769,23 @@ const QuestionResultsDisplay = ({
                         : isClose
                         ? "bg-yellow-500/10 border border-yellow-500/30"
                         : "bg-gray-900/50"
-                    } rounded-2xl p-6 flex items-center gap-6 ${
+                    } rounded-2xl p-3 sm:p-6 flex items-center gap-3 sm:gap-6 ${
                       isCurrentPlayer ? "bg-indigo-500/10" : ""
                     }`}
                   >
-                    <div className="text-2xl font-bold text-indigo-400 w-12 text-center">
+                    <div className="text-lg sm:text-2xl font-bold text-indigo-400 w-8 sm:w-12 text-center">
                       {score && score.points > 0 ? `#${score.position}` : "―"}
                     </div>
-                    <div className="flex-1">
-                      <div className="text-xl font-medium">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-base sm:text-xl font-medium truncate">
                         {answer.playerName}
                       </div>
-                      <div className="text-sm text-gray-400">
+                      <div className="text-xs sm:text-sm text-gray-400">
                         {answer.value} • {score.timeTaken.toFixed(1)}s
                       </div>
                     </div>
                     {score.points > 0 && (
-                      <div className="text-2xl font-bold text-indigo-400">
+                      <div className="text-lg sm:text-2xl font-bold text-indigo-400 whitespace-nowrap">
                         {score.points}{" "}
                         <span className="text-indigo-400/70">pts</span>
                       </div>
