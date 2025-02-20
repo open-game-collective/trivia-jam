@@ -1,28 +1,23 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Bell,
   Check,
-  ChevronRight,
   Copy,
-  Crown,
-  Eye,
   Loader2,
+  Settings,
   Trophy,
   Users,
-  X,
-  Settings,
+  X
 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
-import { GameContext } from "~/game.context";
-import { SessionContext } from "~/session.context";
-import type { Answer } from "~/game.types";
+import { useEffect, useState } from "react";
 import * as Drawer from "vaul";
+import { GameContext } from "~/game.context";
+import type { GamePublicContext } from "~/game.machine";
+import type { Answer, Question, QuestionResult } from "~/game.types";
+import { SessionContext } from "~/session.context";
 import { QuestionProgress } from "./question-progress";
-import type { GamePublicContext } from "../game.machine";
 
 type GameSettings = {
   maxPlayers: number;
-  questionCount: number;
   answerTimeWindow: number;
 };
 
@@ -35,27 +30,51 @@ type SettingsModalProps = {
 
 type Score = GamePublicContext["questionResults"][number]["scores"][number];
 
-export const HostView = ({ 
+// Move formatQuestionsToText outside components
+const formatQuestionsToText = (questions: Record<string, Question>): string => {
+  return Object.values(questions)
+    .map((q) => {
+      if (q.questionType === "numeric") {
+        return `${q.text}\n${q.correctAnswer}\n`;
+      } else {
+        const options =
+          q.options
+            ?.map((opt, i) => `${String.fromCharCode(97 + i)}) ${opt}`)
+            .join(" ") || "";
+        const correctIndex =
+          q.options?.findIndex((opt) => opt === q.correctAnswer) || 0;
+        return `${q.text}\n${options}\nCorrect answer: ${String.fromCharCode(
+          65 + correctIndex
+        )}\n`;
+      }
+    })
+    .join("\n");
+};
+
+export const HostView = ({
   host,
-  initialExactAnswer = true,
-}: { 
+  initialDocumentContent = "",
+}: {
   host: string;
-  initialExactAnswer?: boolean;
+  initialDocumentContent?: string;
 }) => {
-  const gameState = GameContext.useSelector((state) => state);
+  const gameState = GameContext.useSelector((state) => state.public);
   const sessionState = SessionContext.useSelector((state) => state.public);
-  const {
-    gameStatus,
-    currentQuestion,
-    players,
-    hostId,
-    id,
-    questions,
-    questionResults,
-  } = gameState.public;
+  const { currentQuestion, players, hostId, id, questions, questionResults } =
+    gameState;
   const send = GameContext.useSend();
+  const isActive = GameContext.useMatches("active");
+  const isFinished = GameContext.useMatches("finished");
+  const isLobby = GameContext.useMatches("lobby");
 
   const lastQuestionResult = questionResults[questionResults.length - 1];
+
+  const [documentContent, setDocumentContent] = useState(
+    initialDocumentContent
+  );
+  const [isParsingDocument, setIsParsingDocument] = useState(false);
+  const [isEditingQuestions, setIsEditingQuestions] = useState(false);
+  const client = GameContext.useClient();
 
   if (sessionState.userId !== hostId) {
     return (
@@ -115,8 +134,14 @@ export const HostView = ({
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      {isActive && (
+        <QuestionProgress
+          current={gameState.questionNumber}
+          total={Object.keys(gameState.questions).length}
+        />
+      )}
       <AnimatePresence mode="wait">
-        {gameStatus === "lobby" && (
+        {isLobby && (
           <LobbyControls
             players={players}
             onStartGame={() => send({ type: "START_GAME" })}
@@ -124,13 +149,8 @@ export const HostView = ({
           />
         )}
 
-        {gameStatus === "active" && (
+        {isActive && (
           <>
-            <QuestionProgress 
-              current={gameState.public.questionNumber} 
-              total={gameState.public.settings.questionCount} 
-            />
-            
             <div className="min-h-screen flex flex-col items-center pt-16 p-4 relative">
               {/* Background gradient */}
               <div className="absolute inset-0 overflow-hidden">
@@ -168,7 +188,9 @@ export const HostView = ({
                     </div>
 
                     <div className="bg-gray-800/30 backdrop-blur-sm rounded-3xl p-8 border border-gray-700/50">
-                      <h2 className="text-3xl font-bold text-indigo-300 mb-6">Results</h2>
+                      <h2 className="text-3xl font-bold text-indigo-300 mb-6">
+                        Results
+                      </h2>
                       {lastQuestionResult.answers.length === 0 ? (
                         <motion.div
                           initial={{ opacity: 0 }}
@@ -182,39 +204,69 @@ export const HostView = ({
                         </motion.div>
                       ) : (
                         <div className="space-y-4">
-                          {sortedAnswers(lastQuestionResult, questions).map((answer, index) => {
-                            const score = lastQuestionResult.scores.find(s => s.playerId === answer.playerId);
-                            const isExact = answer.value === questions[lastQuestionResult.questionId].correctAnswer;
-                            const correctAnswer = questions[lastQuestionResult.questionId].correctAnswer;
-                            const isClose = Math.abs(answer.value - correctAnswer) / correctAnswer < 0.1; // Within 10%
-                            
-                            return (
-                              <div 
-                                key={answer.playerId}
-                                data-testid={`player-result-${answer.playerId}`}
-                                className={`${
-                                  score && score.points > 0 ? 'bg-green-500/10 border border-green-500/30' : 
-                                  isClose ? 'bg-yellow-500/10 border border-yellow-500/30' :
-                                  'bg-gray-900/50'
-                                } rounded-2xl p-6 flex items-center gap-6`}
-                              >
-                                <div className="text-2xl font-bold text-indigo-400 w-12 text-center">
-                                  {score && score.points > 0 ? `#${score.position}` : "―"}
-                                </div>
-                                <div className="flex-1">
-                                  <div className="text-xl font-medium">{answer.playerName}</div>
-                                  <div className="text-sm text-gray-400">
-                                    {answer.value} • {score?.timeTaken.toFixed(1)}s
+                          {sortedAnswers(lastQuestionResult, questions).map(
+                            (answer, index) => {
+                              const score = lastQuestionResult.scores.find(
+                                (s: { playerId: string }) =>
+                                  s.playerId === answer.playerId
+                              );
+                              const question =
+                                questions[lastQuestionResult.questionId];
+                              const answerValue =
+                                typeof answer.value === "number"
+                                  ? answer.value
+                                  : 0;
+                              const correctAnswerValue =
+                                typeof question.correctAnswer === "number"
+                                  ? question.correctAnswer
+                                  : 0;
+                              const isExact =
+                                question.questionType === "numeric" &&
+                                answerValue === correctAnswerValue;
+                              const isClose =
+                                question.questionType === "numeric" &&
+                                Math.abs(answerValue - correctAnswerValue) /
+                                  correctAnswerValue <
+                                  0.1; // Within 10%
+
+                              return (
+                                <div
+                                  key={answer.playerId}
+                                  data-testid={`player-result-${answer.playerId}`}
+                                  className={`${
+                                    score && score.points > 0
+                                      ? "bg-green-500/10 border border-green-500/30"
+                                      : isClose
+                                      ? "bg-yellow-500/10 border border-yellow-500/30"
+                                      : "bg-gray-900/50"
+                                  } rounded-2xl p-6 flex items-center gap-6`}
+                                >
+                                  <div className="text-2xl font-bold text-indigo-400 w-12 text-center">
+                                    {score && score.points > 0
+                                      ? `#${score.position}`
+                                      : "―"}
                                   </div>
-                                </div>
-                                {score && score.points > 0 && (
-                                  <div className="text-2xl font-bold text-indigo-400">
-                                    {score.points} <span className="text-indigo-400/70">pts</span>
+                                  <div className="flex-1">
+                                    <div className="text-xl font-medium">
+                                      {answer.playerName}
+                                    </div>
+                                    <div className="text-sm text-gray-400">
+                                      {answer.value} •{" "}
+                                      {score?.timeTaken.toFixed(1)}s
+                                    </div>
                                   </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                                  {score && score.points > 0 && (
+                                    <div className="text-2xl font-bold text-indigo-400">
+                                      {score.points}{" "}
+                                      <span className="text-indigo-400/70">
+                                        pts
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                          )}
                         </div>
                       )}
                     </div>
@@ -225,24 +277,23 @@ export const HostView = ({
                 <QuestionControls
                   currentQuestion={currentQuestion}
                   players={players}
-                  initialExactAnswer={initialExactAnswer}
                 />
               </div>
             </div>
           </>
         )}
 
-        {gameStatus === "finished" && <GameFinishedDisplay players={players} />}
+        {isFinished && <GameFinishedDisplay players={players} />}
       </AnimatePresence>
     </div>
   );
 };
 
-const PlayerSlot = ({ 
+const PlayerSlot = ({
   player,
   onRemove,
-  isHost 
-}: { 
+  isHost,
+}: {
   player?: { id: string; name: string; score: number };
   onRemove?: (playerId: string) => void;
   isHost?: boolean;
@@ -270,10 +321,10 @@ const PlayerSlot = ({
           )}
         </div>
         <div className="flex items-center">
-          <motion.span 
+          <motion.span
             key={`score-${player.score}`}
-            initial={{ scale: 1.2, color: '#34D399' }}
-            animate={{ scale: 1, color: '#818CF8' }}
+            initial={{ scale: 1.2, color: "#34D399" }}
+            animate={{ scale: 1, color: "#818CF8" }}
             className="text-indigo-400 font-bold"
           >
             {player.score}
@@ -286,19 +337,22 @@ const PlayerSlot = ({
   </div>
 );
 
-const PlayerList = ({ 
-  players, 
-  maxPlayers = 10,
+const PlayerList = ({
+  players,
+  maxPlayers = 20,
   hostId,
   onRemovePlayer,
-}: { 
+}: {
   players: Array<{ id: string; name: string; score: number }>;
   maxPlayers?: number;
   hostId: string;
   onRemovePlayer?: (playerId: string) => void;
 }) => {
-  // Create array of length maxPlayers filled with players or undefined
-  const slots = Array(maxPlayers).fill(undefined).map((_, i) => players[i]);
+  // Create array with minimum 5 slots or enough slots for all players up to maxPlayers
+  const numSlots = Math.max(5, Math.min(maxPlayers, players.length + 1));
+  const slots = Array(numSlots)
+    .fill(undefined)
+    .map((_, i) => players[i]);
 
   return (
     <motion.div
@@ -311,8 +365,8 @@ const PlayerList = ({
       </h2>
       <div className="space-y-2">
         {slots.map((player, index) => (
-          <PlayerSlot 
-            key={player?.id || `empty-${index}`} 
+          <PlayerSlot
+            key={player?.id || `empty-${index}`}
             player={player}
             isHost={player?.id === hostId}
             onRemove={onRemovePlayer}
@@ -323,7 +377,12 @@ const PlayerList = ({
   );
 };
 
-const SettingsModal = ({ isOpen, onClose, currentSettings, onSave }: SettingsModalProps) => {
+const SettingsModal = ({
+  isOpen,
+  onClose,
+  currentSettings,
+  onSave,
+}: SettingsModalProps) => {
   const [settings, setSettings] = useState<GameSettings>(currentSettings);
   const playerLimits = [10, 100, 1000, 10000, 100000, 1000000];
 
@@ -344,28 +403,12 @@ const SettingsModal = ({ isOpen, onClose, currentSettings, onSave }: SettingsMod
               </h2>
 
               <div className="space-y-4">
-                {/* Question Count Setting */}
-                <div className="bg-white/10 rounded-xl p-4">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-lg font-semibold text-indigo-300">Questions</h3>
-                    <input
-                      id="questionCount"
-                      type="number"
-                      min="1"
-                      max="50"
-                      value={settings.questionCount}
-                      onChange={(e) => setSettings((s) => ({ ...s, questionCount: parseInt(e.target.value) || 1 }))}
-                      className="w-20 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                      aria-label="Number of Questions"
-                    />
-                  </div>
-                  <p className="text-sm text-white/60">Number of questions in the game</p>
-                </div>
-
                 {/* Answer Time Window Setting */}
                 <div className="bg-white/10 rounded-xl p-4">
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-lg font-semibold text-indigo-300">Time Limit</h3>
+                    <h3 className="text-lg font-semibold text-indigo-300">
+                      Time Limit
+                    </h3>
                     <div className="flex items-center gap-2">
                       <input
                         id="answerTime"
@@ -373,35 +416,51 @@ const SettingsModal = ({ isOpen, onClose, currentSettings, onSave }: SettingsMod
                         min="5"
                         max="120"
                         value={settings.answerTimeWindow}
-                        onChange={(e) => setSettings((s) => ({ ...s, answerTimeWindow: parseInt(e.target.value) || 5 }))}
+                        onChange={(e) =>
+                          setSettings((s) => ({
+                            ...s,
+                            answerTimeWindow: parseInt(e.target.value) || 5,
+                          }))
+                        }
                         className="w-16 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-white text-center focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         aria-label="Answer Time Window"
                       />
                       <span className="text-white/60 text-sm">sec</span>
                     </div>
                   </div>
-                  <p className="text-sm text-white/60">Time to answer each question</p>
+                  <p className="text-sm text-white/60">
+                    Time to answer each question
+                  </p>
                 </div>
 
                 {/* Max Players Setting */}
                 <div className="bg-white/10 rounded-xl p-4">
                   <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-lg font-semibold text-indigo-300">Player Limit</h3>
+                    <h3 className="text-lg font-semibold text-indigo-300">
+                      Player Limit
+                    </h3>
                     <select
                       id="maxPlayers"
                       value={settings.maxPlayers}
-                      onChange={(e) => setSettings((s) => ({ ...s, maxPlayers: parseInt(e.target.value) }))}
+                      onChange={(e) =>
+                        setSettings((s) => ({
+                          ...s,
+                          maxPlayers: parseInt(e.target.value),
+                        }))
+                      }
                       className="w-32 bg-black/20 border border-white/10 rounded-lg px-3 py-1 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                       aria-label="Max Players"
                     >
-                      {playerLimits.map(limit => (
+                      {playerLimits.map((limit) => (
                         <option key={limit} value={limit}>
                           {limit.toLocaleString()}
                         </option>
                       ))}
                     </select>
                   </div>
-                  <p className="text-sm text-white/60">Maximum number of players allowed</p>
+                  <p className="text-sm text-white/60">
+                    Maximum number of players allowed
+                  </p>
                 </div>
               </div>
 
@@ -441,12 +500,16 @@ const LobbyControls = ({
 }) => {
   const gameState = GameContext.useSelector((state) => state.public);
   const send = GameContext.useSend();
+  const isParsingDocument = GameContext.useMatches({
+    lobby: "parsingDocument",
+  });
   const hasEnoughPlayers = players.length > 0;
   const [copied, setCopied] = useState(false);
   const [isStarting, setIsStarting] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [isEditingQuestions, setIsEditingQuestions] = useState(false);
+  const [documentContent, setDocumentContent] = useState("");
 
-  // Construct the game URL using the host and game ID
   const gameUrl = `https://${host}/games/${gameState.id}`;
 
   const copyGameLink = async () => {
@@ -458,32 +521,54 @@ const LobbyControls = ({
   const shareGameLink = async () => {
     try {
       await navigator.share({
-        title: 'Join my Trivia Jam game!',
-        text: 'Click to join my Trivia Jam game!',
-        url: gameUrl
+        title: "Join my Trivia Jam game!",
+        text: "Click to join my Trivia Jam game!",
+        url: gameUrl,
       });
     } catch (err) {
       // Fallback to copy if share fails
       copyGameLink();
     }
   };
+  const client = GameContext.useClient();
 
   const handleStartGame = () => {
     setIsStarting(true);
     onStartGame();
   };
 
-  // Add settings handler
+  const handleParseDocument = async () => {
+    if (!documentContent.trim()) return;
+
+    send({
+      type: "PARSE_QUESTIONS",
+      documentContent: documentContent.trim(),
+    });
+
+    // Wait for questions to be added to the state
+    try {
+      await client.waitFor(
+        (state) => Object.keys(state.public.questions).length > 0,
+        10000 // 10 second timeout
+      );
+      setIsEditingQuestions(false);
+    } catch (error) {
+      console.error("Failed to parse questions:", error);
+    }
+  };
+
   const handleSaveSettings = (newSettings: {
     maxPlayers: number;
-    questionCount: number;
     answerTimeWindow: number;
   }) => {
-    send({ 
-      type: "UPDATE_SETTINGS", 
-      settings: newSettings
+    send({
+      type: "UPDATE_SETTINGS",
+      settings: newSettings,
     });
   };
+
+  const hasQuestions = Object.keys(gameState.questions).length > 0;
+  const canStartGame = hasEnoughPlayers && hasQuestions;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
@@ -523,6 +608,164 @@ const LobbyControls = ({
             <Settings className="w-5 h-5" />
           </motion.button>
         </div>
+
+        <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+          Game Setup
+        </h1>
+
+        {/* Question Import Section */}
+        {(!hasQuestions || isEditingQuestions) && (
+          <div className="mb-8">
+            <h2 className="text-xl font-bold text-indigo-300 mb-2">
+              Import Questions
+            </h2>
+            <p className="text-indigo-300/70 text-sm mb-4">
+              Add your trivia questions below. You can use numeric questions
+              (with exact answers) or multiple choice questions. Each question
+              should be followed by its answer.
+            </p>
+            <div className="bg-gray-900/30 rounded-xl p-6 border border-gray-700/50">
+              {isParsingDocument ? (
+                <div className="flex flex-col items-center justify-center py-8">
+                  <Loader2
+                    className="w-8 h-8 animate-spin text-indigo-400 mb-4"
+                    data-testid="parsing-spinner"
+                    role="status"
+                  />
+                  <p className="text-lg text-white/70">
+                    Processing questions...
+                  </p>
+                  <p className="text-sm text-white/50 mt-2">
+                    This may take a few moments
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <textarea
+                    value={documentContent}
+                    onChange={(e) => setDocumentContent(e.target.value)}
+                    placeholder={`Paste your questions below using this format:
+
+Question?
+Answer
+
+For multiple choice questions:
+Question?
+a) Option 1 b) Option 2 c) Option 3 d) Option 4
+Correct answer: B
+
+Example:
+How many bones in human body?
+206
+
+What major canal opened in 1914?
+a) Suez Canal b) Panama Canal c) Erie Canal d) English Channel
+Correct answer: B`}
+                    className="w-full bg-gray-800/50 rounded-xl p-4 text-white placeholder-white/50 border border-gray-700/50 mb-4 text-sm font-mono"
+                    rows={8}
+                  />
+                  <button
+                    onClick={handleParseDocument}
+                    disabled={!documentContent.trim()}
+                    className={`w-full bg-indigo-500/20 border border-indigo-500/30 hover:bg-indigo-500/30 text-white font-bold py-3 px-4 rounded-xl transition-all flex items-center justify-center gap-2 ${
+                      !documentContent.trim()
+                        ? "opacity-50 cursor-not-allowed"
+                        : ""
+                    }`}
+                  >
+                    Submit
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {hasQuestions && !isEditingQuestions && (
+          <div className="mb-8">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-indigo-300">
+                {Object.keys(gameState.questions).length} Questions
+              </h3>
+              <button
+                onClick={() => {
+                  const formattedText = Object.values(gameState.questions)
+                    .map((q) => {
+                      if (q.questionType === "numeric") {
+                        return `${q.text}\n${q.correctAnswer}\n`;
+                      } else {
+                        const options =
+                          q.options
+                            ?.map(
+                              (opt, i) =>
+                                `${String.fromCharCode(97 + i)}) ${opt}`
+                            )
+                            .join(" ") || "";
+                        const correctIndex =
+                          q.options?.findIndex(
+                            (opt) => opt === q.correctAnswer
+                          ) || 0;
+                        return `${
+                          q.text
+                        }\n${options}\nCorrect answer: ${String.fromCharCode(
+                          65 + correctIndex
+                        )}\n`;
+                      }
+                    })
+                    .join("\n");
+                  setDocumentContent(formattedText);
+                  setIsEditingQuestions(true);
+                }}
+                className="text-indigo-400 hover:text-indigo-300 text-sm"
+              >
+                Edit Questions
+              </button>
+            </div>
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {Object.entries(gameState.questions).map(
+                ([id, question], index) => (
+                  <div
+                    key={id}
+                    data-testid={`parsed-question-${index + 1}`}
+                    className="bg-gray-800/50 rounded-lg p-3 text-sm"
+                  >
+                    <div className="flex justify-between items-start gap-4">
+                      <div>
+                        <span className="text-indigo-400 font-medium">
+                          Q{index + 1}:
+                        </span>{" "}
+                        {question.text}
+                        {question.questionType === "multiple-choice" &&
+                          question.options && (
+                            <div className="mt-1 ml-4 text-gray-400">
+                              {question.options.map((option, optIndex) => (
+                                <div
+                                  key={optIndex}
+                                  className={
+                                    option === question.correctAnswer
+                                      ? "text-green-400"
+                                      : "text-gray-400"
+                                  }
+                                >
+                                  {String.fromCharCode(97 + optIndex)}) {option}
+                                  {option === question.correctAnswer && " ✓"}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                      </div>
+                      <div className="text-green-400 font-medium whitespace-nowrap">
+                        {question.questionType === "numeric" && (
+                          <>Answer: {question.correctAnswer}</>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Game Link Section */}
         <div className="mb-8">
@@ -599,23 +842,30 @@ const LobbyControls = ({
           </motion.div>
         </div>
 
-        <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-          Game Lobby
-        </h1>
+        {/* Player List */}
+        <div className="mb-8">
+          <PlayerList
+            players={players}
+            hostId={gameState.hostId}
+            onRemovePlayer={(playerId) =>
+              send({ type: "REMOVE_PLAYER", playerId })
+            }
+          />
+        </div>
 
         {/* Start Game Button */}
         <div className="space-y-3">
           <motion.button
             onClick={handleStartGame}
-            disabled={!hasEnoughPlayers || isStarting}
+            disabled={!canStartGame || isStarting}
             className={`w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
               ${
-                hasEnoughPlayers && !isStarting
+                canStartGame && !isStarting
                   ? "hover:from-indigo-500 hover:to-purple-500 opacity-100"
                   : "opacity-50 cursor-not-allowed"
               }`}
-            whileHover={hasEnoughPlayers && !isStarting ? { scale: 1.02 } : {}}
-            whileTap={hasEnoughPlayers && !isStarting ? { scale: 0.98 } : {}}
+            whileHover={canStartGame && !isStarting ? { scale: 1.02 } : {}}
+            whileTap={canStartGame && !isStarting ? { scale: 0.98 } : {}}
           >
             {isStarting ? (
               <>
@@ -641,15 +891,6 @@ const LobbyControls = ({
           )}
         </div>
 
-
-        <div className="mb-8">
-          <PlayerList 
-            players={players} 
-            hostId={gameState.hostId}
-            onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
-          />
-        </div>
-
         <AnimatePresence>
           {showSettings && (
             <SettingsModal
@@ -668,17 +909,24 @@ const LobbyControls = ({
 const QuestionControls = ({
   currentQuestion,
   players,
-  initialExactAnswer,
 }: {
-  currentQuestion: { questionId: string; startTime: number; answers: Answer[] } | null;
+  currentQuestion: {
+    questionId: string;
+    startTime: number;
+    answers: Answer[];
+  } | null;
   players: Array<{ id: string; name: string; score: number }>;
-  initialExactAnswer: boolean;
 }) => {
-  const [questionText, setQuestionText] = useState("");
-  const [correctAnswer, setCorrectAnswer] = useState<string>("");
-  const [requireExactAnswer, setRequireExactAnswer] = useState(initialExactAnswer);
   const send = GameContext.useSend();
-  const gameState = GameContext.useSelector((state) => state.public);
+  const answerTimeWindow = GameContext.useSelector((state) => state.public.settings.answerTimeWindow);
+  const questions = GameContext.useSelector((state) => state.public.questions);
+  const questionNumber = GameContext.useSelector((state) => state.public.questionNumber);
+  const hostId = GameContext.useSelector((state) => state.public.hostId);
+  const lastQuestionResult = GameContext.useSelector((state) => {
+    const results = state.public.questionResults;
+    return results[results.length - 1];
+  });
+  const isLastQuestion = questionNumber >= Object.keys(questions).length;
 
   // Add timer state
   const [timeLeft, setTimeLeft] = useState(0);
@@ -692,7 +940,7 @@ const QuestionControls = ({
         0,
         Math.ceil(
           (currentQuestion.startTime +
-            gameState.settings.answerTimeWindow * 1000 -
+            answerTimeWindow * 1000 -
             Date.now()) /
             1000
         )
@@ -711,27 +959,15 @@ const QuestionControls = ({
     }, 100);
 
     return () => clearInterval(timer);
-  }, [currentQuestion, gameState.settings.answerTimeWindow]);
-
-  const handleSubmitQuestion = () => {
-    const numericAnswer = parseFloat(correctAnswer);
-    if (questionText.trim() && !isNaN(numericAnswer)) {
-      send({ 
-        type: "SUBMIT_QUESTION", 
-        text: questionText.trim(),
-        correctAnswer: numericAnswer,
-        requireExactAnswer,
-      });
-      setQuestionText("");
-      setCorrectAnswer("");
-      setRequireExactAnswer(false);
-    }
-  };
+  }, [currentQuestion, answerTimeWindow]);
 
   // Get the current question text from questions collection
-  const currentQuestionText = currentQuestion 
-    ? gameState.questions[currentQuestion.questionId]?.text 
+  const currentQuestionText = currentQuestion
+    ? questions[currentQuestion.questionId]?.text
     : null;
+
+  // Get next unanswered question - fix to handle first question
+  const nextQuestion = Object.values(questions)[questionNumber] || {};
 
   return (
     <div className="min-h-screen flex flex-col items-center pt-16 p-4 relative">
@@ -753,7 +989,6 @@ const QuestionControls = ({
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="relative z-10 w-full max-w-xl mx-auto space-y-4">
         {/* Current Question Display */}
         {currentQuestion && (
@@ -770,7 +1005,10 @@ const QuestionControls = ({
                 className="text-3xl font-bold text-indigo-400"
                 animate={{
                   scale: timeLeft <= 5 ? [1, 1.1, 1] : 1,
-                  color: timeLeft <= 5 ? ["#818CF8", "#EF4444", "#818CF8"] : "#818CF8",
+                  color:
+                    timeLeft <= 5
+                      ? ["#818CF8", "#EF4444", "#818CF8"]
+                      : "#818CF8",
                 }}
                 transition={{
                   duration: 1,
@@ -791,19 +1029,11 @@ const QuestionControls = ({
               <div>
                 <div className="text-sm text-white/60 mb-1">Correct Answer</div>
                 <div className="text-xl font-bold text-green-400">
-                  {gameState.questions[currentQuestion.questionId]?.correctAnswer}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-sm text-white/60 mb-1">Answer Type</div>
-                <div className="text-lg font-medium text-indigo-400">
-                  {gameState.questions[currentQuestion.questionId]?.requireExactAnswer 
-                    ? "Exact Match Only" 
-                    : "Closest Answer"}
+                  {questions[currentQuestion.questionId]?.correctAnswer}
                 </div>
               </div>
             </div>
-            
+
             {/* Answer submissions display */}
             {currentQuestion.answers.length > 0 && (
               <div className="mt-4">
@@ -812,49 +1042,67 @@ const QuestionControls = ({
                 </h3>
                 <div className="space-y-2">
                   {currentQuestion.answers.map((answer) => {
-                    const question = gameState.questions[currentQuestion.questionId];
-                    const isExactMatch = answer.value === question.correctAnswer;
-                    const isClosest = !question.requireExactAnswer && 
-                      currentQuestion.answers.every(a => 
-                        Math.abs(answer.value - question.correctAnswer) <= 
-                        Math.abs(a.value - question.correctAnswer)
-                      );
+                    const question = questions[currentQuestion.questionId];
+                    const answerValue =
+                      typeof answer.value === "number" ? answer.value : 0;
+                    const correctAnswerValue =
+                      typeof question.correctAnswer === "number"
+                        ? question.correctAnswer
+                        : 0;
+                    const isExact =
+                      question.questionType === "numeric" &&
+                      answerValue === correctAnswerValue;
+                    const isClose =
+                      question.questionType === "numeric" &&
+                      Math.abs(answerValue - correctAnswerValue) /
+                        correctAnswerValue <
+                        0.1;
 
                     return (
                       <div
                         key={answer.playerId}
                         className={`bg-gray-900/30 rounded-lg p-3 flex justify-between items-center border ${
-                          isExactMatch 
-                            ? 'border-green-500/50 bg-green-500/10' 
-                            : isClosest 
-                              ? 'border-indigo-500/50 bg-indigo-500/10'
-                              : 'border-transparent'
+                          isExact
+                            ? "border-green-500/50 bg-green-500/10"
+                            : isClose
+                            ? "border-indigo-500/50 bg-indigo-500/10"
+                            : "border-transparent"
                         }`}
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-white/90">{answer.playerName}</span>
-                          {(isExactMatch || isClosest) && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              isExactMatch 
-                                ? 'bg-green-500/20 text-green-400'
-                                : 'bg-indigo-500/20 text-indigo-400'
-                            }`}>
-                              {isExactMatch ? 'Exact' : 'Closest'}
+                          <span className="text-white/90">
+                            {answer.playerName}
+                          </span>
+                          {(isExact || isClose) && (
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-full ${
+                                isExact
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-indigo-500/20 text-indigo-400"
+                              }`}
+                            >
+                              {isExact ? "Exact" : "Closest"}
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className={`font-medium ${
-                            isExactMatch 
-                              ? 'text-green-400' 
-                              : isClosest 
-                                ? 'text-indigo-400'
-                                : 'text-white/90'
-                          }`}>
+                          <span
+                            className={`font-medium ${
+                              isExact
+                                ? "text-green-400"
+                                : isClose
+                                ? "text-indigo-400"
+                                : "text-white/90"
+                            }`}
+                          >
                             {answer.value}
                           </span>
                           <span className="text-white/60">
-                            {((answer.timestamp - currentQuestion.startTime) / 1000).toFixed(1)}s
+                            {(
+                              (answer.timestamp - currentQuestion.startTime) /
+                              1000
+                            ).toFixed(1)}
+                            s
                           </span>
                         </div>
                       </div>
@@ -866,130 +1114,190 @@ const QuestionControls = ({
           </motion.div>
         )}
 
-        {/* Question Input */}
+        {/* Question Results or Next Question Button */}
         {!currentQuestion && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
-          >
-            <label
-              htmlFor="question-input"
-              className="text-xl font-bold mb-2 text-indigo-300 block"
-            >
-              Enter Question
-            </label>
-            <textarea
-              id="question-input"
-              value={questionText}
-              onChange={(e) => setQuestionText(e.target.value)}
-              placeholder="Type your question here..."
-              className="w-full bg-gray-900/50 rounded-xl p-3 sm:p-4 text-white placeholder-white/50 border border-gray-700/50 mb-3 sm:mb-4 text-lg"
-              rows={5}
-              aria-label="Enter question"
-            />
-            
-            {/* New Numerical Answer Input */}
-            <label
-              htmlFor="correct-answer"
-              className="text-xl font-bold mb-2 text-indigo-300 block"
-            >
-              Correct Answer
-            </label>
-            <input
-              id="correct-answer"
-              type="number"
-              value={correctAnswer}
-              onChange={(e) => setCorrectAnswer(e.target.value)}
-              placeholder="Enter the numerical answer"
-              className="w-full bg-gray-900/50 rounded-xl p-3 sm:p-4 text-white placeholder-white/50 border border-gray-700/50 mb-3 sm:mb-4 text-lg"
-              aria-label="Correct answer"
-              step="any"
-            />
-
-            {/* Answer type toggle */}
-            <div className="p-4 bg-gray-800/30 backdrop-blur-sm rounded-xl border border-gray-700/50 mb-4">
-              <h3 className="font-medium text-white mb-3">Answer Type</h3>
-              <div className="space-y-3">
-                <label className="flex items-start space-x-3 cursor-pointer group">
-                  <div className="relative flex items-center">
-                    <input
-                      type="radio"
-                      checked={requireExactAnswer}
-                      onChange={() => setRequireExactAnswer(true)}
-                      className="peer sr-only"
-                    />
-                    <div className="w-4 h-4 border-2 rounded-full border-gray-500 group-hover:border-indigo-400 peer-checked:border-indigo-500">
-                      <div className={`w-2 h-2 rounded-full bg-indigo-500 m-0.5 transition-opacity ${
-                        requireExactAnswer ? 'opacity-100' : 'opacity-0'
-                      }`} />
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-white">Exact Answer</div>
-                    <p className="text-sm text-white/60">
-                      Only exact matches will earn points
+          <>
+            {lastQuestionResult ? (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
+              >
+                {isLastQuestion ? (
+                  <>
+                    <h2 className="text-xl font-bold text-indigo-300 mb-4">
+                      Game Complete
+                    </h2>
+                    <p className="text-lg text-white/70 mb-6">
+                      All questions have been answered. You can now end the
+                      game.
                     </p>
-                  </div>
-                </label>
-
-                <label className="flex items-start space-x-3 cursor-pointer group">
-                  <div className="relative flex items-center">
-                    <input
-                      type="radio"
-                      checked={!requireExactAnswer}
-                      onChange={() => setRequireExactAnswer(false)}
-                      className="peer sr-only"
-                    />
-                    <div className="w-4 h-4 border-2 rounded-full border-gray-500 group-hover:border-indigo-400 peer-checked:border-indigo-500">
-                      <div className={`w-2 h-2 rounded-full bg-indigo-500 m-0.5 transition-opacity ${
-                        !requireExactAnswer ? 'opacity-100' : 'opacity-0'
-                      }`} />
+                    <motion.button
+                      onClick={() => send({ type: "END_GAME" })}
+                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-purple-500"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      data-testid="end-game-button"
+                    >
+                      End Game
+                    </motion.button>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-xl font-bold text-indigo-300 mb-4">
+                      Next Question Preview
+                    </h2>
+                    <div className="bg-gray-900/30 rounded-xl p-4 mb-6">
+                      {nextQuestion ? (
+                        <>
+                          <div className="text-lg text-white/90 mb-2">
+                            {nextQuestion.text}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-white/60">
+                              Answer:
+                            </span>
+                            <span className="text-lg font-medium text-green-400">
+                              {nextQuestion.correctAnswer}
+                            </span>
+                          </div>
+                          {nextQuestion.questionType === "multiple-choice" &&
+                            nextQuestion.options && (
+                              <div className="mt-2">
+                                <div className="text-sm text-white/60 mb-1">
+                                  Options:
+                                </div>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {nextQuestion.options.map(
+                                    (option: string, index: number) => (
+                                      <div
+                                        key={index}
+                                        className={`text-sm p-2 rounded ${
+                                          option === nextQuestion.correctAnswer
+                                            ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                            : "bg-gray-800/50 text-white/70"
+                                        }`}
+                                      >
+                                        {option}
+                                      </div>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                        </>
+                      ) : (
+                        <div className="text-lg text-white/70 text-center py-4">
+                          No more questions available
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="font-medium text-white">Closest Answer</div>
-                    <p className="text-sm text-white/60">
-                      Points awarded to answers nearest the correct value
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            <motion.button
-              onClick={handleSubmitQuestion}
-              disabled={!questionText.trim() || !correctAnswer.trim()}
-              className={`w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2
-                ${questionText.trim() && correctAnswer.trim() 
-                  ? "hover:from-indigo-500 hover:to-purple-500 opacity-100"
-                  : "opacity-50 cursor-not-allowed"
-                }`}
-              whileHover={questionText.trim() && correctAnswer.trim() ? { scale: 1.02 } : {}}
-              whileTap={questionText.trim() && correctAnswer.trim() ? { scale: 0.98 } : {}}
-            >
-              <ChevronRight className="w-5 h-5" />
-              Submit Question
-            </motion.button>
-          </motion.div>
+                    <motion.button
+                      onClick={() => {
+                        if (!nextQuestion) return;
+                        send({
+                          type: "NEXT_QUESTION",
+                        });
+                      }}
+                      className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-purple-500"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      Start Next Question
+                    </motion.button>
+                  </>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, y: -20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-gray-800/30 backdrop-blur-sm rounded-2xl p-4 sm:p-6 border border-gray-700/50"
+              >
+                <h2 className="text-xl font-bold text-indigo-300 mb-4">
+                  Start First Question
+                </h2>
+                <div className="bg-gray-900/30 rounded-xl p-4 mb-6">
+                  {nextQuestion ? (
+                    <>
+                      <div className="text-lg text-white/90 mb-2">
+                        {nextQuestion.text}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-white/60">Answer:</span>
+                        <span className="text-lg font-medium text-green-400">
+                          {nextQuestion.correctAnswer}
+                        </span>
+                      </div>
+                      {nextQuestion.questionType === "multiple-choice" &&
+                        nextQuestion.options && (
+                          <div className="mt-2">
+                            <div className="text-sm text-white/60 mb-1">
+                              Options:
+                            </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              {nextQuestion.options.map(
+                                (option: string, index: number) => (
+                                  <div
+                                    key={index}
+                                    className={`text-sm p-2 rounded ${
+                                      option === nextQuestion.correctAnswer
+                                        ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                        : "bg-gray-800/50 text-white/70"
+                                    }`}
+                                  >
+                                    {option}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          </div>
+                        )}
+                    </>
+                  ) : (
+                    <div className="text-lg text-white/70 text-center py-4">
+                      No questions available
+                    </div>
+                  )}
+                </div>
+                <motion.button
+                  onClick={() => {
+                    if (!nextQuestion) return;
+                    send({
+                      type: "NEXT_QUESTION",
+                    });
+                  }}
+                  className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold py-4 px-8 rounded-xl shadow-lg transition-all flex items-center justify-center gap-2 hover:from-indigo-500 hover:to-purple-500"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  Start First Question
+                </motion.button>
+              </motion.div>
+            )}
+          </>
         )}
 
         {/* Player List */}
-        <PlayerList 
-          players={players} 
-          hostId={gameState.hostId}
-          onRemovePlayer={(playerId) => send({ type: "REMOVE_PLAYER", playerId })}
+        <PlayerList
+          players={players}
+          hostId={hostId}
+          onRemovePlayer={(playerId) =>
+            send({ type: "REMOVE_PLAYER", playerId })
+          }
         />
 
-        {/* End Game Button */}
-        <motion.button
-          onClick={() => send({ type: "END_GAME" })}
-          className="w-full bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-xl transition-all flex items-center justify-center gap-2"
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          End Game
-        </motion.button>
+        {/* End Game Button - Only show if not in game complete state */}
+        {!isLastQuestion && (
+          <motion.button
+            onClick={() => send({ type: "END_GAME" })}
+            className="w-full bg-red-500/20 border border-red-500/30 hover:bg-red-500/30 text-white font-bold py-2 sm:py-3 px-4 sm:px-6 rounded-xl transition-all flex items-center justify-center gap-2"
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            End Game
+          </motion.button>
+        )}
       </div>
     </div>
   );
@@ -1036,54 +1344,65 @@ const GameFinishedDisplay = ({
           <h2 className="text-xl font-bold mb-4 text-indigo-300 flex items-center gap-2">
             <Trophy className="w-6 h-6" /> Final Scores
           </h2>
-          {sortedPlayers
-            .map((player, index) => (
-              <motion.div
-                key={player.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`flex justify-between items-center p-4 rounded-xl border ${
-                  index === 0
-                    ? "bg-yellow-500/10 border-yellow-500/30"
-                    : "bg-gray-800/30 border-gray-700/30"
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-2xl font-bold text-indigo-400">
-                    #{index + 1}
-                  </span>
-                  <span className="font-medium">{player.name}</span>
-                </div>
-                <span className="text-xl font-bold text-indigo-400">
-                  {player.score}
+          {sortedPlayers.map((player, index) => (
+            <motion.div
+              key={player.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.1 }}
+              className={`flex justify-between items-center p-4 rounded-xl border ${
+                index === 0
+                  ? "bg-yellow-500/10 border-yellow-500/30"
+                  : "bg-gray-800/30 border-gray-700/30"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl font-bold text-indigo-400">
+                  #{index + 1}
                 </span>
-              </motion.div>
-            ))}
+                <span className="font-medium">{player.name}</span>
+              </div>
+              <span className="text-xl font-bold text-indigo-400">
+                {player.score}
+              </span>
+            </motion.div>
+          ))}
         </div>
       </motion.div>
     </div>
   );
 };
 
-const sortedAnswers = (result: { 
-  answers: Answer[]; 
-  scores: Score[]; 
-  questionId: string;
-}, questions: Record<string, { correctAnswer: number }>) => {
-  const correctAnswer = questions[result.questionId].correctAnswer;
-  
+const sortedAnswers = (
+  result: {
+    answers: Answer[];
+    scores: Score[];
+    questionId: string;
+  },
+  questions: Record<string, Question>
+) => {
+  const question = questions[result.questionId];
+  const correctAnswer = question.correctAnswer;
+
   // First sort scores
   const sortedScores = [...result.scores].sort((a, b) => {
     if (b.points !== a.points) {
       return b.points - a.points;
     }
     // If points are equal (including 0), sort by how close to correct answer
-    const answerA = result.answers.find(ans => ans.playerId === a.playerId)?.value;
-    const answerB = result.answers.find(ans => ans.playerId === b.playerId)?.value;
-    if (answerA && answerB) {
-      const diffA = Math.abs(answerA - correctAnswer);
-      const diffB = Math.abs(answerB - correctAnswer);
+    const answerA = result.answers.find(
+      (ans) => ans.playerId === a.playerId
+    )?.value;
+    const answerB = result.answers.find(
+      (ans) => ans.playerId === b.playerId
+    )?.value;
+    if (
+      answerA !== undefined &&
+      answerB !== undefined &&
+      question.questionType === "numeric"
+    ) {
+      const diffA = Math.abs(Number(answerA) - Number(correctAnswer));
+      const diffB = Math.abs(Number(answerB) - Number(correctAnswer));
       if (diffA !== diffB) {
         return diffA - diffB; // Closer answer ranks higher
       }
@@ -1091,10 +1410,82 @@ const sortedAnswers = (result: {
     // If equally close, sort by time
     return a.timeTaken - b.timeTaken;
   });
-  
+
   // Then map to answers in the same order
-  return sortedScores.map(score => 
-    result.answers.find(a => a.playerId === score.playerId)!
+  return sortedScores.map(
+    (score) => result.answers.find((a) => a.playerId === score.playerId)!
   );
 };
 
+export function QuestionResults({
+  question,
+  results,
+  totalQuestions,
+  currentQuestionNumber,
+  onNextQuestion,
+  onEndGame,
+}: {
+  question: Question;
+  results: QuestionResult;
+  totalQuestions: number;
+  currentQuestionNumber: number;
+  onNextQuestion: () => void;
+  onEndGame: () => void;
+}) {
+  const isLastQuestion = currentQuestionNumber === totalQuestions;
+
+  return (
+    <div className="space-y-8">
+      <div className="text-center">
+        <h2 className="text-3xl font-bold text-white mb-2">{question.text}</h2>
+        <div className="text-xl text-green-400">
+          Correct Answer: {question.correctAnswer}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-2xl font-semibold text-white">Results</h3>
+        {results.scores.map((score, index) => (
+          <div
+            key={score.playerId}
+            data-testid={`player-result-${score.playerId}`}
+            className="bg-gray-800 rounded-lg p-4 flex items-center justify-between"
+          >
+            <div className="flex items-center space-x-4">
+              <div className="text-xl font-semibold text-purple-400">
+                #{index + 1}
+              </div>
+              <div>
+                <div className="font-medium text-white">{score.playerName}</div>
+                <div className="text-sm text-gray-400">
+                  {
+                    results.answers.find((a) => a.playerId === score.playerId)
+                      ?.value
+                  }
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center space-x-4">
+              <div className="text-sm text-gray-400">
+                {score.timeTaken.toFixed(1)}s
+              </div>
+              <div className="text-lg font-semibold text-purple-400">
+                {score.points}{" "}
+                <span className="text-sm text-gray-400">pts</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="flex justify-center pt-4">
+        <button
+          onClick={isLastQuestion ? onEndGame : onNextQuestion}
+          className="px-6 py-3 text-lg font-semibold text-white bg-purple-600 rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+        >
+          {isLastQuestion ? "End Game" : "Next Question"}
+        </button>
+      </div>
+    </div>
+  );
+}

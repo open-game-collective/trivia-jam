@@ -12,10 +12,21 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
     type: z.literal("START_GAME"),
   }),
   z.object({
-    type: z.literal("SUBMIT_QUESTION"),
-    text: z.string(),
-    correctAnswer: z.number(),
-    requireExactAnswer: z.boolean(),
+    type: z.literal("PARSE_QUESTIONS"),
+    documentContent: z.string(),
+  }),
+  z.object({
+    type: z.literal("QUESTIONS_PARSED"),
+    questions: z.record(z.object({
+      id: z.string(),
+      text: z.string(),
+      correctAnswer: z.union([z.number(), z.string()]),
+      questionType: z.enum(["numeric", "multiple-choice"]),
+      options: z.array(z.string()).optional(),
+    })),
+  }),
+  z.object({
+    type: z.literal("NEXT_QUESTION"),
   }),
   z.object({
     type: z.literal("END_GAME"),
@@ -31,7 +42,7 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
   }),
   z.object({
     type: z.literal("SUBMIT_ANSWER"),
-    value: z.number(),
+    value: z.union([z.number(), z.string()]), // Can be numeric value or multiple choice option
   }),
 
   // Update Settings Event
@@ -39,7 +50,6 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
     type: z.literal("UPDATE_SETTINGS"),
     settings: z.object({
       maxPlayers: z.number().min(2).max(1000000),
-      questionCount: z.number().min(1).max(50),
       answerTimeWindow: z.number().min(5).max(120),
     }),
   }),

@@ -147,7 +147,7 @@ export const ActiveQuestionNoAnswers: Story = {
                 id: "q1",
                 text: "What year was the Declaration of Independence signed?",
                 correctAnswer: 1776,
-                requireExactAnswer: false,
+                questionType: "numeric",
               },
             },
             currentQuestion: {
@@ -169,13 +169,12 @@ export const ActiveQuestionNoAnswers: Story = {
           ...defaultGameSnapshot.public,
           id: "game-123",
           hostId: "host-123",
-          gameStatus: "active",
           questions: {
             "q1": {
               id: "q1",
               text: "What year was the Declaration of Independence signed?",
               correctAnswer: 1776,
-              requireExactAnswer: false,
+              questionType: "numeric",
             },
           },
           currentQuestion: {
@@ -186,7 +185,6 @@ export const ActiveQuestionNoAnswers: Story = {
           players: createPlayers(10),
           settings: {
             maxPlayers: 10,
-            questionCount: 10,
             answerTimeWindow: 30,
           },
         },
@@ -230,7 +228,7 @@ export const ActiveQuestionWithAnswers: Story = {
                 id: "q1",
                 text: "What year was the Declaration of Independence signed?",
                 correctAnswer: 1776,
-                requireExactAnswer: false,
+                questionType: "numeric",
               },
             },
             currentQuestion: {
@@ -256,7 +254,6 @@ export const ActiveQuestionWithAnswers: Story = {
               maxPlayers: 10,
               questionCount: 10,
               answerTimeWindow: 30,
-              requireExactAnswers: false,
             },
           },
           value: { active: "questionActive" },
@@ -285,7 +282,7 @@ export const QuestionResults: Story = {
                 id: "q1",
                 text: "What year was the Declaration of Independence signed?",
                 correctAnswer: 1776,
-                requireExactAnswer: false,
+                questionType: "numeric",
               },
             },
             currentQuestion: null,
@@ -333,7 +330,6 @@ export const QuestionResults: Story = {
               maxPlayers: 10,
               questionCount: 10,
               answerTimeWindow: 30,
-              requireExactAnswers: false,
             },
           },
           value: { active: "questionPrep" },
@@ -349,13 +345,12 @@ export const QuestionResults: Story = {
           ...defaultGameSnapshot.public,
           id: "game-123",
           hostId: "host-123",
-          gameStatus: "active",
           questions: {
             "q1": {
               id: "q1",
               text: "What year was the Declaration of Independence signed?",
               correctAnswer: 1776,
-              requireExactAnswer: false,
+              questionType: "numeric",
             },
           },
           currentQuestion: null,
@@ -401,7 +396,6 @@ export const QuestionResults: Story = {
           }),
           settings: {
             maxPlayers: 10,
-            questionCount: 10,
             answerTimeWindow: 30,
           },
         },
@@ -473,7 +467,6 @@ export const GameFinished: Story = {
               maxPlayers: 10,
               questionCount: 10,
               answerTimeWindow: 30,
-              requireExactAnswers: false,
             },
           },
           value: "finished",
@@ -489,7 +482,6 @@ export const GameFinished: Story = {
           ...defaultGameSnapshot.public,
           id: "game-123",
           hostId: "host-123",
-          gameStatus: "finished",
           winner: "player-1",
           players: createPlayers(10, {
             "player-1": 15,
@@ -507,7 +499,6 @@ export const GameFinished: Story = {
           questionResults: [],
           settings: {
             maxPlayers: 10,
-            questionCount: 10,
             answerTimeWindow: 30,
           },
         },
@@ -574,7 +565,6 @@ export const WaitingForQuestion: Story = {
               maxPlayers: 10,
               questionCount: 10,
               answerTimeWindow: 30,
-              requireExactAnswers: false,
             },
           },
           value: { active: "questionPrep" },

@@ -25,29 +25,45 @@ export type GameEvent = (
 export type Answer = {
   playerId: string;
   playerName: string;
-  value: number;
+  value: number | string;
   timestamp: number;
 };
 
-export type Question = {
+export interface Question {
   id: string;
   text: string;
-  correctAnswer: number;
-  requireExactAnswer: boolean;
-};
+  correctAnswer: string | number;
+  questionType: "numeric" | "multiple-choice";
+  options?: string[];
+}
 
-export type QuestionResult = {
+export interface PlayerAnswer {
+  playerId: string;
+  playerName: string;
+  value: string | number;
+  timestamp: number;
+}
+
+export interface PlayerScore {
+  playerId: string;
+  playerName: string;
+  points: number;
+  position: number;
+  timeTaken: number;
+}
+
+export interface QuestionResult {
   questionId: string;
   questionNumber: number;
-  answers: Answer[];
-  scores: Array<{
-    playerId: string;
-    playerName: string;
-    points: number;
-    position: number;
-    timeTaken: number;
-  }>;
-};
+  answers: PlayerAnswer[];
+  scores: PlayerScore[];
+}
+
+export interface Player {
+  id: string;
+  name: string;
+  score: number;
+}
 
 export type GamePublicContext = {
   id: string;
@@ -64,16 +80,16 @@ export type GamePublicContext = {
     startTime: number;
     answers: Answer[];
   } | null;
-  gameStatus: "lobby" | "active" | "finished";
+  // gameStatus: "lobby" | "active" | "finished";
   winner: string | null;
   settings: {
     maxPlayers: number;
-    questionCount: number;
     answerTimeWindow: number;
   };
   questions: Record<string, Question>;
   questionResults: QuestionResult[];
   questionNumber: number;
+  parsingErrorMessage?: string;
 };
 
 export type GamePrivateContext = {};
