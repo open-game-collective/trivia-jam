@@ -223,7 +223,7 @@ export const gameMachine = setup({
       currentQuestion: null,
       winner: null,
       settings: {
-        maxPlayers: 10,
+        maxPlayers: 30,
         answerTimeWindow: 25,
       },
       questionNumber: 0,

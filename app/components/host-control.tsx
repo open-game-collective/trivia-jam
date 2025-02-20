@@ -28,7 +28,7 @@ export function HostControl() {
 
   const SettingsModal = () => {
     const [maxPlayers, setMaxPlayers] = useState(
-      gameState.settings?.maxPlayers || 10
+      gameState.settings?.maxPlayers || 30
     );
     const [questionCount, setQuestionCount] = useState(
       gameState.settings?.questionCount || 10
