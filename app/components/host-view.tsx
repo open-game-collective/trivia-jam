@@ -15,6 +15,8 @@ import type { GamePublicContext } from "~/game.machine";
 import type { Answer, Question, QuestionResult } from "~/game.types";
 import { SessionContext } from "~/session.context";
 import { QuestionProgress } from "./question-progress";
+import { CastButton } from './CastButton';
+import { BridgeContext, CastContext } from '~/bridge/client';
 
 type GameSettings = {
   maxPlayers: number;
@@ -596,22 +598,28 @@ const LobbyControls = ({
         exit={{ opacity: 0, scale: 0.9 }}
         className="relative z-10 w-full max-w-4xl bg-gray-800/30 backdrop-blur-sm rounded-2xl p-8 border border-gray-700/50"
       >
-        {/* Add Settings Button */}
-        <div className="absolute top-4 right-4">
-          <motion.button
-            onClick={() => setShowSettings(true)}
-            className="p-2 rounded-lg bg-gray-900/30 border border-gray-700/30 text-indigo-300 hover:text-indigo-200 transition-colors"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            aria-label="Settings"
-          >
-            <Settings className="w-5 h-5" />
-          </motion.button>
+        {/* Header with Title and Controls */}
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
+            Game Setup
+          </h1>
+          <div className="flex items-center gap-2">
+            <BridgeContext.Supported>
+              <CastContext.Provider>
+                <CastButton />
+              </CastContext.Provider>
+            </BridgeContext.Supported>
+            <motion.button
+              onClick={() => setShowSettings(true)}
+              className="p-2 rounded-lg bg-gray-900/30 border border-gray-700/30 text-indigo-300 hover:text-indigo-200 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              aria-label="Settings"
+            >
+              <Settings className="w-5 h-5" />
+            </motion.button>
+          </div>
         </div>
-
-        <h1 className="text-4xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">
-          Game Setup
-        </h1>
 
         {/* Question Import Section */}
         {(!hasQuestions || isEditingQuestions) && (
