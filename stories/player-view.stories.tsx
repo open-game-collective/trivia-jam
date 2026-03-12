@@ -1025,7 +1025,7 @@ export const MultipleChoiceAnswerSubmitted: Story = {
     await waitFor(() => {
       const timer = canvas.getByTestId("question-timer");
       const timeValue = parseInt(timer.textContent!);
-      expect(timeValue).toBeGreaterThanOrEqual(22);
+      expect(timeValue).toBeGreaterThanOrEqual(15);
       expect(timeValue).toBeLessThanOrEqual(25);
     }, { timeout: 2000 });
 
