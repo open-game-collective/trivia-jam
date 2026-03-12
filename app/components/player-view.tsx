@@ -725,8 +725,19 @@ const NameEntryForm = () => {
  * Banner shown to players who are not using the OGS native app,
  * prompting them to download it for push notification support.
  */
+const OGS_BANNER_DISMISSED_KEY = "ogs_banner_dismissed";
+
 const OgsAppBanner = () => {
-  const [dismissed, setDismissed] = useState(false);
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      const stored = localStorage.getItem(OGS_BANNER_DISMISSED_KEY);
+      if (!stored) return false;
+      // Re-show after 7 days
+      return Date.now() - Number(stored) < 7 * 24 * 60 * 60 * 1000;
+    } catch {
+      return false;
+    }
+  });
 
   // Check if we're inside the OGS WebView using the bridge
   let isInOgsApp = false;
@@ -738,10 +749,28 @@ const OgsAppBanner = () => {
     // NotificationKit store not available
   }
 
-  // Don't show banner if in OGS app or dismissed
-  if (isInOgsApp || dismissed) {
+  // Detect mobile browser
+  const isMobile =
+    typeof navigator !== "undefined" &&
+    /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // Don't show banner if in OGS app, dismissed, or on desktop
+  if (isInOgsApp || dismissed || !isMobile) {
     return null;
   }
+
+  // Build Universal Link URL that opens this game in the OGS app
+  const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+  const openInAppUrl = `https://opengame.org/open?url=${encodeURIComponent(currentUrl)}`;
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    try {
+      localStorage.setItem(OGS_BANNER_DISMISSED_KEY, String(Date.now()));
+    } catch {
+      // Storage not available
+    }
+  };
 
   return (
     <motion.div
@@ -755,7 +784,7 @@ const OgsAppBanner = () => {
           <Bell className="w-5 h-5 text-white/90 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-white">
-              Get the OGS app for notifications
+              Play in the OGS app for notifications
             </p>
             <p className="text-xs text-white/70">
               Never miss when a game starts
@@ -764,15 +793,13 @@ const OgsAppBanner = () => {
         </div>
         <div className="flex items-center gap-2">
           <a
-            href="https://opengame.org/app"
-            target="_blank"
-            rel="noopener noreferrer"
+            href={openInAppUrl}
             className="bg-white/20 hover:bg-white/30 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
           >
-            Get App
+            Open in App
           </a>
           <button
-            onClick={() => setDismissed(true)}
+            onClick={handleDismiss}
             className="text-white/60 hover:text-white/90 text-lg px-1 transition-colors"
             aria-label="Dismiss"
           >
