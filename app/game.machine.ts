@@ -378,7 +378,7 @@ export const gameMachine = setup({
           players: context.public.players,
           gameId: context.public.id,
           hostName: context.public.hostName,
-          apiKey: event.env?.OGS_API_KEY || "",
+          apiKey: (event.env?.OGS_API_KEY as string) ?? "",
         }),
       },
       initial: "questionPrep",
@@ -516,7 +516,7 @@ export const gameMachine = setup({
             players: context.public.players,
             gameId: context.public.id,
             winnerName: winner?.name || "Unknown",
-            apiKey: event.env?.OGS_API_KEY || "",
+            apiKey: (event.env?.OGS_API_KEY as string) ?? "",
           };
         },
       },
