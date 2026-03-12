@@ -420,11 +420,11 @@ export const QuestionResults: Story = {
     // Verify player scores
     const player1Result = await canvas.findByTestId("player-result-player-1");
     expect(player1Result).toBeInTheDocument();
-    expect(player1Result).toHaveTextContent("3 points");
+    expect(player1Result).toHaveTextContent("3 pts");
 
     const player2Result = await canvas.findByTestId("player-result-player-2");
     expect(player2Result).toBeInTheDocument();
-    expect(player2Result).toHaveTextContent("2 points");
+    expect(player2Result).toHaveTextContent("2 pts");
   },
 };
 
