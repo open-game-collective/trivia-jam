@@ -1,8 +1,9 @@
 import { useStore } from "@nanostores/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Crown, HelpCircle, Loader2 } from "lucide-react";
+import { Bell, BellRing, Crown, HelpCircle, Loader2 } from "lucide-react";
 import { atom } from "nanostores";
 import { useEffect, useState } from "react";
+import { BridgeContext, NotificationContext } from "~/bridge/client";
 import { GameContext } from "~/game.context";
 import { GamePublicContext } from "~/game.types";
 import { SessionContext } from "~/session.context";
@@ -105,6 +106,7 @@ export const PlayerView = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      <OgsAppBanner />
       <AnimatePresence mode="wait">
         {isLobby && <LobbyDisplay player={player} />}
 
@@ -447,9 +449,20 @@ const WaitingDisplay = ({ player }: { player: Player }) => {
 
 const GameFinishedDisplay = ({ player }: { player: Player }) => {
   const gameState = GameContext.useSelector((state) => state.public);
+  const send = GameContext.useSend();
+  const [subscribed, setSubscribed] = useState(false);
   // Sort players by score in descending order
   const sortedPlayers = [...gameState.players].sort((a, b) => b.score - a.score);
   const winner = sortedPlayers[0];
+
+  // Check if the current player has an ogsDeviceId (is in OGS app)
+  const currentPlayer = gameState.players.find((p) => p.id === player.id);
+  const hasOgsDevice = !!currentPlayer?.ogsDeviceId;
+
+  const handleSubscribe = () => {
+    send({ type: "SUBSCRIBE_TO_HOST" });
+    setSubscribed(true);
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
@@ -490,6 +503,35 @@ const GameFinishedDisplay = ({ player }: { player: Player }) => {
             with {winner.score} points
           </p>
         </div>
+
+        {/* Notify me button for OGS app players */}
+        {hasOgsDevice && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mb-8"
+          >
+            {subscribed ? (
+              <div className="flex items-center justify-center gap-2 text-green-400 bg-green-500/10 border border-green-500/30 rounded-xl py-3 px-4">
+                <BellRing className="w-5 h-5" />
+                <span className="font-medium">
+                  You'll be notified for future games!
+                </span>
+              </div>
+            ) : (
+              <motion.button
+                onClick={handleSubscribe}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center gap-2"
+              >
+                <Bell className="w-5 h-5" />
+                Notify me for future games
+              </motion.button>
+            )}
+          </motion.div>
+        )}
 
         {/* Final Scores Section */}
         <div className="space-y-4">
@@ -542,6 +584,17 @@ const NameEntryForm = () => {
   const [$showHelp] = useState(() => atom<boolean>(false));
   const showHelp = useStore($showHelp);
 
+  // Get ogsDeviceId from the notification bridge if available
+  let ogsDeviceId: string | null = null;
+  try {
+    // This will only have a value when running inside the OGS native app
+    ogsDeviceId = NotificationContext.useSelector(
+      (state) => state.ogsDeviceId
+    );
+  } catch {
+    // NotificationKit store not available (not in OGS app)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -563,6 +616,7 @@ const NameEntryForm = () => {
     send({
       type: "JOIN_GAME",
       playerName: name.trim(),
+      ...(ogsDeviceId ? { ogsDeviceId } : {}),
     });
   };
 
@@ -664,6 +718,96 @@ const NameEntryForm = () => {
         </AnimatePresence>
       </motion.div>
     </div>
+  );
+};
+
+/**
+ * Banner shown to players who are not using the OGS native app,
+ * prompting them to download it for push notification support.
+ */
+const OGS_BANNER_DISMISSED_KEY = "ogs_banner_dismissed";
+
+const OgsAppBanner = () => {
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      const stored = localStorage.getItem(OGS_BANNER_DISMISSED_KEY);
+      if (!stored) return false;
+      // Re-show after 7 days
+      return Date.now() - Number(stored) < 7 * 24 * 60 * 60 * 1000;
+    } catch {
+      return false;
+    }
+  });
+
+  // Check if we're inside the OGS WebView using the bridge
+  let isInOgsApp = false;
+  try {
+    isInOgsApp = NotificationContext.useSelector(
+      (state) => state.ogsDeviceId !== null
+    );
+  } catch {
+    // NotificationKit store not available
+  }
+
+  // Detect mobile browser
+  const isMobile =
+    typeof navigator !== "undefined" &&
+    /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  // Don't show banner if in OGS app, dismissed, or on desktop
+  if (isInOgsApp || dismissed || !isMobile) {
+    return null;
+  }
+
+  // Build Universal Link URL that opens this game in the OGS app
+  const currentUrl = typeof window !== "undefined" ? window.location.href : "";
+  const openInAppUrl = `https://opengame.org/open?url=${encodeURIComponent(currentUrl)}`;
+
+  const handleDismiss = () => {
+    setDismissed(true);
+    try {
+      localStorage.setItem(OGS_BANNER_DISMISSED_KEY, String(Date.now()));
+    } catch {
+      // Storage not available
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 shadow-lg"
+    >
+      <div className="flex items-center justify-between max-w-xl mx-auto">
+        <div className="flex items-center gap-3">
+          <Bell className="w-5 h-5 text-white/90 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-white">
+              Play in the OGS app for notifications
+            </p>
+            <p className="text-xs text-white/70">
+              Never miss when a game starts
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href={openInAppUrl}
+            className="bg-white/20 hover:bg-white/30 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Open in App
+          </a>
+          <button
+            onClick={handleDismiss}
+            className="text-white/60 hover:text-white/90 text-lg px-1 transition-colors"
+            aria-label="Dismiss"
+          >
+            x
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 

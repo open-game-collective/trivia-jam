@@ -9,4 +9,7 @@ export const bridge = createWebBridge<AppStores>();
 export const BridgeContext = createBridgeContext<AppStores>();
 
 // Create and export a specific context for the castKit store
-export const CastContext = BridgeContext.createStoreContext("castKit"); 
+export const CastContext = BridgeContext.createStoreContext("castKit");
+
+// Create and export a specific context for the notificationKit store
+export const NotificationContext = BridgeContext.createStoreContext("notificationKit"); 

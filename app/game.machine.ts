@@ -17,6 +17,8 @@ import type {
 } from "./game.types";
 import { parseQuestions } from "./gemini";
 import { calculateScores } from "./game/scoring";
+import { notifyGameStarted, notifyGameFinished, notifyNewGame } from "./notifications.server";
+import { addSubscriber, getSubscribers } from "./subscribers.server";
 
 export const gameMachine = setup({
   types: {} as {
@@ -60,6 +62,84 @@ export const gameMachine = setup({
         return { questions };
       }
     ),
+    sendGameStartedNotification: fromPromise(
+      async ({
+        input,
+      }: {
+        input: {
+          players: Array<{ id: string; name: string; ogsDeviceId?: string }>;
+          gameId: string;
+          hostName: string;
+          apiKey: string;
+        };
+      }) => {
+        await notifyGameStarted(
+          input.players,
+          input.gameId,
+          input.hostName,
+          input.apiKey
+        );
+        return true;
+      }
+    ),
+    sendGameFinishedNotification: fromPromise(
+      async ({
+        input,
+      }: {
+        input: {
+          players: Array<{ id: string; name: string; ogsDeviceId?: string }>;
+          gameId: string;
+          winnerName: string;
+          apiKey: string;
+        };
+      }) => {
+        await notifyGameFinished(
+          input.players,
+          input.gameId,
+          input.winnerName,
+          input.apiKey
+        );
+        return true;
+      }
+    ),
+    subscribeToHost: fromPromise(
+      async ({
+        input,
+      }: {
+        input: {
+          kv: KVNamespace;
+          hostId: string;
+          ogsDeviceId: string;
+        };
+      }) => {
+        await addSubscriber(input.kv, input.hostId, input.ogsDeviceId);
+        return true;
+      }
+    ),
+    notifyPastPlayers: fromPromise(
+      async ({
+        input,
+      }: {
+        input: {
+          kv: KVNamespace;
+          hostId: string;
+          hostName: string;
+          gameUrl: string;
+          apiKey: string;
+        };
+      }) => {
+        const subscribers = await getSubscribers(input.kv, input.hostId);
+        if (subscribers.length > 0) {
+          await notifyNewGame(
+            subscribers,
+            input.hostName,
+            input.gameUrl,
+            input.apiKey
+          );
+        }
+        return true;
+      }
+    ),
   },
   actions: {
     setQuestionNumber: assign(
@@ -70,9 +150,9 @@ export const gameMachine = setup({
       })
     ),
     addPlayerToGame: assign(
-      ({ context }, { name, id }: { name: string; id: string }) => ({
+      ({ context }, { name, id, ogsDeviceId }: { name: string; id: string; ogsDeviceId?: string }) => ({
         public: produce(context.public, (draft) => {
-          draft.players.push({ id, name, score: 0 });
+          draft.players.push({ id, name, score: 0, ogsDeviceId });
         }),
       })
     ),
@@ -311,6 +391,7 @@ export const gameMachine = setup({
             }) => ({
               id: event.caller.id,
               name: event.playerName,
+              ogsDeviceId: "ogsDeviceId" in event ? event.ogsDeviceId : undefined,
             }),
           },
         },
@@ -330,6 +411,15 @@ export const gameMachine = setup({
       },
     },
     active: {
+      invoke: {
+        src: "sendGameStartedNotification",
+        input: ({ context, event }: { context: GameServerContext; event: GameEvent }) => ({
+          players: context.public.players,
+          gameId: context.public.id,
+          hostName: context.public.hostName,
+          apiKey: (event.env?.OGS_API_KEY as string) ?? "",
+        }),
+      },
       initial: "questionPrep",
       states: {
         questionPrep: {
@@ -417,6 +507,7 @@ export const gameMachine = setup({
             }) => ({
               id: event.caller.id,
               name: event.playerName,
+              ogsDeviceId: "ogsDeviceId" in event ? event.ogsDeviceId : undefined,
             }),
           },
         },
@@ -453,7 +544,63 @@ export const gameMachine = setup({
       },
     },
     finished: {
-      type: "final",
+      invoke: {
+        src: "sendGameFinishedNotification",
+        input: ({ context, event }: { context: GameServerContext; event: GameEvent }) => {
+          const winner = context.public.players.reduce((a, b) =>
+            a.score > b.score ? a : b
+          );
+          return {
+            players: context.public.players,
+            gameId: context.public.id,
+            winnerName: winner?.name || "Unknown",
+            apiKey: (event.env?.OGS_API_KEY as string) ?? "",
+          };
+        },
+      },
+      on: {
+        SUBSCRIBE_TO_HOST: {
+          actions: [
+            ({ context, event }: { context: GameServerContext; event: GameEvent }) => {
+              const player = context.public.players.find(
+                (p) => p.id === event.caller.id
+              );
+              if (player?.ogsDeviceId && event.env?.KV_STORAGE) {
+                const kv = event.env.KV_STORAGE as KVNamespace;
+                void addSubscriber(kv, context.public.hostId, player.ogsDeviceId);
+              }
+            },
+          ],
+        },
+        NOTIFY_PAST_PLAYERS: {
+          guard: "isHost",
+          actions: [
+            ({ context, event }: { context: GameServerContext; event: GameEvent }) => {
+              if (
+                event.type === "NOTIFY_PAST_PLAYERS" &&
+                event.env?.KV_STORAGE &&
+                event.env?.OGS_API_KEY
+              ) {
+                const kv = event.env.KV_STORAGE as KVNamespace;
+                const apiKey = event.env.OGS_API_KEY as string;
+                const gameUrl = (event as any).gameUrl as string;
+                void getSubscribers(kv, context.public.hostId).then(
+                  (subscribers) => {
+                    if (subscribers.length > 0) {
+                      void notifyNewGame(
+                        subscribers,
+                        context.public.hostName,
+                        gameUrl,
+                        apiKey
+                      );
+                    }
+                  }
+                );
+              }
+            },
+          ],
+        },
+      },
     },
   },
 }) satisfies ActorKitStateMachine<GameEvent, GameInput, GameServerContext>;
@@ -462,6 +609,7 @@ interface Player {
   id: string;
   name: string;
   score: number;
+  ogsDeviceId?: string;
 }
 
 export type GameMachine = typeof gameMachine;

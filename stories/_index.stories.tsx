@@ -76,7 +76,7 @@ export const DefaultView: Story = {
   parameters: {
     remix: {
       initialPath: "/",
-      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile", host: "dev.triviajam.tv" },
+      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile", host: "dev.triviajam.tv", subscriberCount: 0 },
       userId: "user-123",
       sessionId: "session-123",
       pageSessionId: "page-session-123",
@@ -94,7 +94,7 @@ export const TestJoinWithCode: Story = {
   parameters: {
     remix: {
       initialPath: "/?code=ABC123",
-      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile", host: "dev.triviajam.tv" },
+      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile", host: "dev.triviajam.tv", subscriberCount: 0 },
       userId: "user-123",
       sessionId: "session-123",
       pageSessionId: "page-session-123",
@@ -107,8 +107,9 @@ export const TestJoinWithCode: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const gameCodeInput = canvas.getByRole("textbox", { name: "Game Code" });
-    expect(gameCodeInput).toHaveValue("ABC123");
+    // Index page now shows "Create New Game" instead of a game code input
+    const createButton = canvas.getByRole("button", { name: /create new game/i });
+    expect(createButton).toBeInTheDocument();
   },
 };
 
@@ -128,8 +129,8 @@ export const TestJoinGameFlow: Story = {
   ],
   parameters: {
     remix: {
-      initialPath: "/?code=ABC123",
-      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile", host: "dev.triviajam.tv" },
+      initialPath: "/",
+      loaderData: { gameId: TEST_GAME_ID, deviceType: "mobile", host: "dev.triviajam.tv", subscriberCount: 0 },
       userId: "user-123",
       sessionId: "session-123",
       pageSessionId: "page-session-123",
@@ -159,23 +160,12 @@ export const TestJoinGameFlow: Story = {
       </SessionContext.ProviderFromClient>
     );
 
-    const gameCodeInput = canvas.getByRole("textbox", { name: "Game Code" });
-    expect(gameCodeInput).toHaveValue("ABC123");
+    // Index page now shows "Create New Game" button that links to the game page
+    const createButton = canvas.getByRole("button", { name: /create new game/i });
+    expect(createButton).toBeInTheDocument();
 
-    const joinButton = canvas.getByRole("button", { name: /join game/i });
-    await userEvent.click(joinButton);
-
-    const loadingText = await canvas.findByText(/joining/i);
-    expect(loadingText).toBeInTheDocument();
-
-    sessionClient.produce((draft) => {
-      draft.public.gameIdsByJoinCode = {
-        ABC123: "game-123",
-      };
-    });
-
-    await waitFor(() => {
-      expect(canvas.queryByText(/joining/i)).not.toBeInTheDocument();
-    });
+    // Verify the link wrapping the button points to the game
+    const createLink = canvas.getByRole("link", { name: /create new game/i });
+    expect(createLink).toHaveAttribute("href", `/games/${TEST_GAME_ID}`);
   },
 };

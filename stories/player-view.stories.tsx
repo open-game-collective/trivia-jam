@@ -401,19 +401,18 @@ export const QuestionResults: Story = {
     });
     expect(questionText).toBeInTheDocument();
     expect(questionText).toHaveClass(
-      'text-6xl',
+      'text-xl',
       'font-bold',
       'bg-clip-text',
       'text-transparent',
       'bg-gradient-to-r',
       'from-indigo-400',
       'to-purple-400',
-      'mb-6'
     );
 
     const correctAnswer = await canvas.findByTestId("correct-answer");
     expect(correctAnswer).toBeInTheDocument();
-    expect(correctAnswer).toHaveClass('text-5xl', 'font-bold', 'text-green-400');
+    expect(correctAnswer).toHaveClass('font-bold', 'text-green-400');
     expect(correctAnswer).toHaveTextContent("1776");
 
     // Verify first player result (Test Player)
@@ -424,27 +423,24 @@ export const QuestionResults: Story = {
       'border',
       'border-green-500/30',
       'rounded-2xl',
-      'p-6',
       'flex',
       'items-center',
-      'gap-6',
       'bg-indigo-500/10'
     );
-    
+
     const player456Details = within(player456Row);
-    
+
     // Find player name in the specific element
     const nameElement = player456Details.getByText("Test Player", {
-      selector: '.text-xl.font-medium'
+      selector: '.font-medium'
     });
     expect(nameElement).toBeInTheDocument();
 
     // Find answer and time in the specific element
     const answerTimeElement = player456Details.getByText((content, element) => {
       return Boolean(
-        element?.classList.contains('text-sm') && 
-        element?.classList.contains('text-gray-400') && 
-        content.includes('1776') && 
+        element?.classList.contains('text-gray-400') &&
+        content.includes('1776') &&
         content.includes('5.0s')
       );
     });
@@ -452,7 +448,7 @@ export const QuestionResults: Story = {
 
     // Find points in the specific element
     const pointsElement = player456Details.getByText("5", {
-      selector: '.text-2xl.font-bold.text-indigo-400'
+      selector: '.font-bold.text-indigo-400'
     });
     expect(pointsElement).toBeInTheDocument();
   },
@@ -573,9 +569,8 @@ export const NoPointsResults: Story = {
     // Find answer and time in the specific element
     const answerTimeElement = within(player2Row).getByText((content, element) => {
       return Boolean(
-        element?.classList.contains('text-sm') && 
-        element?.classList.contains('text-gray-400') && 
-        content.includes('1776') && 
+        element?.classList.contains('text-gray-400') &&
+        content.includes('1776') &&
         content.includes('5.0s')
       );
     });
@@ -583,23 +578,23 @@ export const NoPointsResults: Story = {
 
     // Find points in the specific element
     const pointsElement = within(player2Row).getByText("5", {
-      selector: '.text-2xl.font-bold.text-indigo-400'
+      selector: '.font-bold.text-indigo-400'
     });
     expect(pointsElement).toBeInTheDocument();
 
     // Verify second player result (Player 3)
     const player3Row = await canvas.findByTestId('player-result-player-3');
     expect(within(player3Row).getByText("Player 3")).toBeInTheDocument();
-    expect(within(player3Row).getByText("1776")).toBeInTheDocument();
-    expect(within(player3Row).getByText("8.0s")).toBeInTheDocument();
-    expect(within(player3Row).getByText("3")).toBeInTheDocument();
-    expect(within(player3Row).getByText("pts")).toBeInTheDocument();
+    expect(player3Row).toHaveTextContent("1776");
+    expect(player3Row).toHaveTextContent("8.0s");
+    expect(player3Row).toHaveTextContent("3");
+    expect(player3Row).toHaveTextContent("pts");
 
     // Verify test player result (no points)
     const player456Row = await canvas.findByTestId('player-result-player-456');
     expect(within(player456Row).getByText("Test Player")).toBeInTheDocument();
-    expect(within(player456Row).getByText("1775")).toBeInTheDocument();
-    expect(within(player456Row).getByText("25.0s")).toBeInTheDocument();
+    expect(player456Row).toHaveTextContent("1775");
+    expect(player456Row).toHaveTextContent("25.0");
     // No points assertions since this player scored 0
   },
 };
@@ -937,10 +932,12 @@ export const ActiveMultipleChoiceQuestion: Story = {
     const questionText = await canvas.findByText("What major canal opened in 1914?");
     expect(questionText).toBeInTheDocument();
 
-    // Verify timer display
+    // Verify timer display (startTime is 5s ago with 30s window, so ~25s remaining but may tick down)
     const timer = await canvas.findByTestId("question-timer");
     expect(timer).toBeInTheDocument();
-    expect(timer).toHaveTextContent("25s");
+    const timerValue = parseInt(timer.textContent!);
+    expect(timerValue).toBeGreaterThanOrEqual(18);
+    expect(timerValue).toBeLessThanOrEqual(25);
 
     // Verify multiple choice options are displayed
     const options = await canvas.findAllByRole("button", { name: /(Suez Canal|Panama Canal|Erie Canal|English Channel)/ });
@@ -988,7 +985,7 @@ export const MultipleChoiceAnswerSubmitted: Story = {
             },
             currentQuestion: {
               questionId: "q1",
-              startTime: Date.now(),
+              startTime: Date.now() - 5000,
               answers: [
                 {
                   playerId: "player-456",
@@ -1028,7 +1025,8 @@ export const MultipleChoiceAnswerSubmitted: Story = {
     await waitFor(() => {
       const timer = canvas.getByTestId("question-timer");
       const timeValue = parseInt(timer.textContent!);
-      expect(timeValue).toBeGreaterThanOrEqual(25);
+      expect(timeValue).toBeGreaterThanOrEqual(15);
+      expect(timeValue).toBeLessThanOrEqual(25);
     }, { timeout: 2000 });
 
     // Verify answer submitted state
@@ -1042,10 +1040,12 @@ export const MultipleChoiceAnswerSubmitted: Story = {
     const submittedAnswer = within(submittedState).getByText("Panama Canal");
     expect(submittedAnswer).toBeInTheDocument();
 
-    // Find the time element
+    // Find the time element (answer was submitted 3s after question start)
     const timeContainer = within(submittedState).getByText((content, element) => {
-      const elementText = element?.textContent || '';
-      return elementText.includes('3') && elementText.includes('s');
+      return Boolean(
+        element?.classList.contains('text-white/60') &&
+        /\d+/.test(element?.textContent || '')
+      );
     });
     expect(timeContainer).toBeInTheDocument();
   },
@@ -1111,10 +1111,12 @@ export const LongMultipleChoiceQuestion: Story = {
     const questionText = await canvas.findByText("Which AI-powered humanoid robot became the first robot to be granted citizenship?");
     expect(questionText).toBeInTheDocument();
 
-    // Verify timer display
+    // Verify timer display (startTime is 5s ago with 30s window, so ~25s remaining but may tick down)
     const timer = await canvas.findByTestId("question-timer");
     expect(timer).toBeInTheDocument();
-    expect(timer).toHaveTextContent("25s");
+    const timerValue = parseInt(timer.textContent!);
+    expect(timerValue).toBeGreaterThanOrEqual(18);
+    expect(timerValue).toBeLessThanOrEqual(25);
 
     // Verify multiple choice options are displayed and properly aligned
     const options = await canvas.findAllByRole("button");

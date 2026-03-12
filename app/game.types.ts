@@ -63,6 +63,7 @@ export interface Player {
   id: string;
   name: string;
   score: number;
+  ogsDeviceId?: string;
 }
 
 export type GamePublicContext = {
@@ -74,6 +75,7 @@ export type GamePublicContext = {
     id: string;
     name: string;
     score: number;
+    ogsDeviceId?: string;
   }>;
   currentQuestion: {
     questionId: string;

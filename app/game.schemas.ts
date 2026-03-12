@@ -39,6 +39,7 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("JOIN_GAME"),
     playerName: z.string(),
+    ogsDeviceId: z.string().optional(),
   }),
   z.object({
     type: z.literal("SUBMIT_ANSWER"),
@@ -58,6 +59,18 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("REMOVE_PLAYER"),
     playerId: z.string(),
+  }),
+
+  // Re-engagement: subscribe to future games from this host
+  z.object({
+    type: z.literal("SUBSCRIBE_TO_HOST"),
+  }),
+
+  // Re-engagement: host notifies past players
+  z.object({
+    type: z.literal("NOTIFY_PAST_PLAYERS"),
+    gameId: z.string(),
+    gameUrl: z.string(),
   }),
 ]);
 

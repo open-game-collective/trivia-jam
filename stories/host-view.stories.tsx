@@ -10,6 +10,7 @@ import type { GameMachine } from "../app/game.machine";
 import { SessionContext } from "../app/session.context";
 import type { SessionMachine } from "../app/session.machine";
 import { defaultGameSnapshot, defaultSessionSnapshot } from "./utils";
+import { BridgeContext, bridge } from "../app/bridge/client";
 
 const meta = {
   title: "Views/HostView",
@@ -22,6 +23,11 @@ const meta = {
     host: "dev.triviajam.tv"  // Default host value
   },
   decorators: [
+    (Story) => (
+      <BridgeContext.Provider bridge={bridge}>
+        <Story />
+      </BridgeContext.Provider>
+    ),
     withActorKit<SessionMachine>({
       actorType: "session",
       context: SessionContext,

@@ -1,5 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Bell,
   Check,
   Copy,
   Loader2,
@@ -1318,6 +1319,48 @@ const GameFinishedDisplay = ({
 }) => {
   // Create a copy before sorting
   const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+  const gameState = GameContext.useSelector((state) => state.public);
+  const sessionState = SessionContext.useSelector((state) => state.public);
+  const [subscriberCount, setSubscriberCount] = useState<number | null>(null);
+  const [notifying, setNotifying] = useState(false);
+  const [notified, setNotified] = useState(false);
+
+  // Fetch subscriber count on mount
+  useEffect(() => {
+    fetch(`/api/subscribers?hostId=${encodeURIComponent(sessionState.userId)}`)
+      .then((res) => res.json())
+      .then((data: unknown) => {
+        const result = data as { count?: number };
+        if (typeof result.count === "number") {
+          setSubscriberCount(result.count);
+        }
+      })
+      .catch(() => {
+        // Silently fail
+      });
+  }, [sessionState.userId]);
+
+  const handleNotifyPastPlayers = async () => {
+    setNotifying(true);
+    try {
+      const newGameId = crypto.randomUUID();
+      const gameUrl = `/games/${newGameId}`;
+      await fetch("/api/subscribers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hostId: sessionState.userId,
+          hostName: gameState.hostName,
+          gameUrl,
+        }),
+      });
+      setNotified(true);
+    } catch {
+      // Silently fail
+    } finally {
+      setNotifying(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
@@ -1376,6 +1419,47 @@ const GameFinishedDisplay = ({
             </motion.div>
           ))}
         </div>
+
+        {/* Notify past players button */}
+        {subscriberCount !== null && subscriberCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5 }}
+            className="mt-6"
+          >
+            {notified ? (
+              <div className="flex items-center justify-center gap-2 text-green-400 bg-green-500/10 border border-green-500/30 rounded-xl py-3 px-4">
+                <Bell className="w-5 h-5" />
+                <span className="font-medium">
+                  Notified {subscriberCount} past player{subscriberCount !== 1 ? "s" : ""}!
+                </span>
+              </div>
+            ) : (
+              <motion.button
+                onClick={handleNotifyPastPlayers}
+                disabled={notifying}
+                whileHover={{ scale: notifying ? 1 : 1.02 }}
+                whileTap={{ scale: notifying ? 1 : 0.98 }}
+                className={`w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center gap-2 ${
+                  notifying ? "opacity-75 cursor-not-allowed" : ""
+                }`}
+              >
+                {notifying ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Notifying...
+                  </>
+                ) : (
+                  <>
+                    <Bell className="w-5 h-5" />
+                    Notify {subscriberCount} past player{subscriberCount !== 1 ? "s" : ""}
+                  </>
+                )}
+              </motion.button>
+            )}
+          </motion.div>
+        )}
       </motion.div>
     </div>
   );
