@@ -1,8 +1,9 @@
 import { useStore } from "@nanostores/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Crown, HelpCircle, Loader2 } from "lucide-react";
+import { Bell, Crown, HelpCircle, Loader2 } from "lucide-react";
 import { atom } from "nanostores";
 import { useEffect, useState } from "react";
+import { BridgeContext, NotificationContext } from "~/bridge/client";
 import { GameContext } from "~/game.context";
 import { GamePublicContext } from "~/game.types";
 import { SessionContext } from "~/session.context";
@@ -105,6 +106,7 @@ export const PlayerView = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      <OgsAppBanner />
       <AnimatePresence mode="wait">
         {isLobby && <LobbyDisplay player={player} />}
 
@@ -542,6 +544,17 @@ const NameEntryForm = () => {
   const [$showHelp] = useState(() => atom<boolean>(false));
   const showHelp = useStore($showHelp);
 
+  // Get ogsDeviceId from the notification bridge if available
+  let ogsDeviceId: string | null = null;
+  try {
+    // This will only have a value when running inside the OGS native app
+    ogsDeviceId = NotificationContext.useSelector(
+      (state) => state.ogsDeviceId
+    );
+  } catch {
+    // NotificationKit store not available (not in OGS app)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -563,6 +576,7 @@ const NameEntryForm = () => {
     send({
       type: "JOIN_GAME",
       playerName: name.trim(),
+      ...(ogsDeviceId ? { ogsDeviceId } : {}),
     });
   };
 
@@ -664,6 +678,69 @@ const NameEntryForm = () => {
         </AnimatePresence>
       </motion.div>
     </div>
+  );
+};
+
+/**
+ * Banner shown to players who are not using the OGS native app,
+ * prompting them to download it for push notification support.
+ */
+const OgsAppBanner = () => {
+  const [dismissed, setDismissed] = useState(false);
+
+  // Check if we're inside the OGS WebView using the bridge
+  let isInOgsApp = false;
+  try {
+    isInOgsApp = NotificationContext.useSelector(
+      (state) => state.ogsDeviceId !== null
+    );
+  } catch {
+    // NotificationKit store not available
+  }
+
+  // Don't show banner if in OGS app or dismissed
+  if (isInOgsApp || dismissed) {
+    return null;
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      className="fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-indigo-600 to-purple-600 px-4 py-3 shadow-lg"
+    >
+      <div className="flex items-center justify-between max-w-xl mx-auto">
+        <div className="flex items-center gap-3">
+          <Bell className="w-5 h-5 text-white/90 flex-shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-white">
+              Get the OGS app for notifications
+            </p>
+            <p className="text-xs text-white/70">
+              Never miss when a game starts
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href="https://opengame.org/app"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-white/20 hover:bg-white/30 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Get App
+          </a>
+          <button
+            onClick={() => setDismissed(true)}
+            className="text-white/60 hover:text-white/90 text-lg px-1 transition-colors"
+            aria-label="Dismiss"
+          >
+            x
+          </button>
+        </div>
+      </div>
+    </motion.div>
   );
 };
 

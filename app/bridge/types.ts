@@ -28,10 +28,26 @@ type CastKitEvents =
   | { type: "SESSION_RESUMED" }
   | { type: 'SHOW_CAST_PICKER' };
 
+// Notification Kit types for OGS push notifications
+interface NotificationKitState {
+  /** The OGS device ID, available when running inside the OGS native app */
+  ogsDeviceId: string | null;
+  /** Whether push notifications are enabled for this device */
+  pushEnabled: boolean;
+}
+
+type NotificationKitEvents =
+  | { type: "DEVICE_REGISTERED"; ogsDeviceId: string }
+  | { type: "PUSH_STATUS_CHANGED"; enabled: boolean };
+
 // Define AppStores type
 export type AppStores = {
   castKit: {
     state: CastKitState;
     events: CastKitEvents;
+  };
+  notificationKit: {
+    state: NotificationKitState;
+    events: NotificationKitEvents;
   };
 }; 

@@ -22,5 +22,6 @@ export interface Env {
   ACTOR_KIT_HOST: string;
   NODE_ENV: string;
   GEMINI_API_KEY: string;
+  OGS_API_KEY: string;
   [key: string]: DurableObjectNamespace<ActorServer<any>> | unknown;
 }

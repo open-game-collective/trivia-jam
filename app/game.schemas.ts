@@ -39,6 +39,7 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("JOIN_GAME"),
     playerName: z.string(),
+    ogsDeviceId: z.string().optional(),
   }),
   z.object({
     type: z.literal("SUBMIT_ANSWER"),

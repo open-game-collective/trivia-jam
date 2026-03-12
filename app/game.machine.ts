@@ -17,6 +17,7 @@ import type {
 } from "./game.types";
 import { parseQuestions } from "./gemini";
 import { calculateScores } from "./game/scoring";
+import { notifyGameStarted, notifyGameFinished } from "./notifications.server";
 
 export const gameMachine = setup({
   types: {} as {
@@ -60,6 +61,46 @@ export const gameMachine = setup({
         return { questions };
       }
     ),
+    sendGameStartedNotification: fromPromise(
+      async ({
+        input,
+      }: {
+        input: {
+          players: Array<{ id: string; name: string; ogsDeviceId?: string }>;
+          gameId: string;
+          hostName: string;
+          apiKey: string;
+        };
+      }) => {
+        await notifyGameStarted(
+          input.players,
+          input.gameId,
+          input.hostName,
+          input.apiKey
+        );
+        return true;
+      }
+    ),
+    sendGameFinishedNotification: fromPromise(
+      async ({
+        input,
+      }: {
+        input: {
+          players: Array<{ id: string; name: string; ogsDeviceId?: string }>;
+          gameId: string;
+          winnerName: string;
+          apiKey: string;
+        };
+      }) => {
+        await notifyGameFinished(
+          input.players,
+          input.gameId,
+          input.winnerName,
+          input.apiKey
+        );
+        return true;
+      }
+    ),
   },
   actions: {
     setQuestionNumber: assign(
@@ -70,9 +111,9 @@ export const gameMachine = setup({
       })
     ),
     addPlayerToGame: assign(
-      ({ context }, { name, id }: { name: string; id: string }) => ({
+      ({ context }, { name, id, ogsDeviceId }: { name: string; id: string; ogsDeviceId?: string }) => ({
         public: produce(context.public, (draft) => {
-          draft.players.push({ id, name, score: 0 });
+          draft.players.push({ id, name, score: 0, ogsDeviceId });
         }),
       })
     ),
@@ -311,6 +352,7 @@ export const gameMachine = setup({
             }) => ({
               id: event.caller.id,
               name: event.playerName,
+              ogsDeviceId: "ogsDeviceId" in event ? event.ogsDeviceId : undefined,
             }),
           },
         },
@@ -330,6 +372,15 @@ export const gameMachine = setup({
       },
     },
     active: {
+      invoke: {
+        src: "sendGameStartedNotification",
+        input: ({ context, event }: { context: GameServerContext; event: GameEvent }) => ({
+          players: context.public.players,
+          gameId: context.public.id,
+          hostName: context.public.hostName,
+          apiKey: event.env?.OGS_API_KEY || "",
+        }),
+      },
       initial: "questionPrep",
       states: {
         questionPrep: {
@@ -417,6 +468,7 @@ export const gameMachine = setup({
             }) => ({
               id: event.caller.id,
               name: event.playerName,
+              ogsDeviceId: "ogsDeviceId" in event ? event.ogsDeviceId : undefined,
             }),
           },
         },
@@ -454,6 +506,20 @@ export const gameMachine = setup({
     },
     finished: {
       type: "final",
+      invoke: {
+        src: "sendGameFinishedNotification",
+        input: ({ context, event }: { context: GameServerContext; event: GameEvent }) => {
+          const winner = context.public.players.reduce((a, b) =>
+            a.score > b.score ? a : b
+          );
+          return {
+            players: context.public.players,
+            gameId: context.public.id,
+            winnerName: winner?.name || "Unknown",
+            apiKey: event.env?.OGS_API_KEY || "",
+          };
+        },
+      },
     },
   },
 }) satisfies ActorKitStateMachine<GameEvent, GameInput, GameServerContext>;
@@ -462,6 +528,7 @@ interface Player {
   id: string;
   name: string;
   score: number;
+  ogsDeviceId?: string;
 }
 
 export type GameMachine = typeof gameMachine;
