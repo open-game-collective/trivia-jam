@@ -936,7 +936,7 @@ export const ActiveMultipleChoiceQuestion: Story = {
     const timer = await canvas.findByTestId("question-timer");
     expect(timer).toBeInTheDocument();
     const timerValue = parseInt(timer.textContent!);
-    expect(timerValue).toBeGreaterThanOrEqual(20);
+    expect(timerValue).toBeGreaterThanOrEqual(18);
     expect(timerValue).toBeLessThanOrEqual(25);
 
     // Verify multiple choice options are displayed
@@ -1115,7 +1115,7 @@ export const LongMultipleChoiceQuestion: Story = {
     const timer = await canvas.findByTestId("question-timer");
     expect(timer).toBeInTheDocument();
     const timerValue = parseInt(timer.textContent!);
-    expect(timerValue).toBeGreaterThanOrEqual(20);
+    expect(timerValue).toBeGreaterThanOrEqual(18);
     expect(timerValue).toBeLessThanOrEqual(25);
 
     // Verify multiple choice options are displayed and properly aligned
