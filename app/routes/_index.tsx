@@ -3,7 +3,7 @@ import { useStore } from "@nanostores/react";
 import type { LoaderFunctionArgs, MetaFunction } from "@remix-run/cloudflare";
 import { json, useLoaderData } from "@remix-run/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Dice1, HelpCircle, Plus } from "lucide-react";
+import { Bell, Dice1, HelpCircle, Loader2, Plus } from "lucide-react";
 import { atom } from "nanostores";
 import { useState } from "react";
 import { getDeviceType } from "~/utils/deviceType";
@@ -28,13 +28,28 @@ export async function loader({ params, context, request }: LoaderFunctionArgs) {
   const host = context.env.ACTOR_KIT_HOST;
   const gameId = crypto.randomUUID();
   const deviceType = getDeviceType(request.headers.get("user-agent"));
-  return json({ gameId, deviceType, host });
+
+  // Check if the current user has any subscribers for re-engagement
+  let subscriberCount = 0;
+  try {
+    const { getSubscribers } = await import("~/subscribers.server");
+    const subscribers = await getSubscribers(
+      context.env.KV_STORAGE,
+      context.userId
+    );
+    subscriberCount = subscribers.length;
+  } catch {
+    // Silently fail
+  }
+
+  return json({ gameId, deviceType, host, subscriberCount });
 }
 
 export type LoaderData = {
   gameId: string;
   deviceType: string;
   host: string;
+  subscriberCount: number;
 };
 
 export default function Index() {
@@ -50,9 +65,31 @@ type HomePageContentProps = {
 };
 
 function HomePageContent({ newGameId, $showHelp }: HomePageContentProps) {
-  const { deviceType, host } = useLoaderData<LoaderData>();
+  const { deviceType, host, subscriberCount } = useLoaderData<LoaderData>();
   const isMobile = deviceType === "mobile";
   const showHelp = useStore($showHelp);
+  const [notifying, setNotifying] = useState(false);
+  const [notified, setNotified] = useState(false);
+
+  const handleNotifyPastPlayers = async () => {
+    setNotifying(true);
+    try {
+      await fetch("/api/subscribers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          hostId: "current-user", // Will be resolved server-side
+          hostName: "Host",
+          gameUrl: `/games/${newGameId}`,
+        }),
+      });
+      setNotified(true);
+    } catch {
+      // Silently fail
+    } finally {
+      setNotifying(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center p-4 relative overflow-hidden">
@@ -101,6 +138,42 @@ function HomePageContent({ newGameId, $showHelp }: HomePageContentProps) {
               Create New Game
             </motion.button>
           </a>
+
+          {/* Notify past players option */}
+          {subscriberCount > 0 && (
+            <div className="mt-4">
+              {notified ? (
+                <div className="flex items-center justify-center gap-2 text-green-400 bg-green-500/10 border border-green-500/30 rounded-xl py-3 px-4">
+                  <Bell size={20} />
+                  <span className="font-medium">
+                    Notified {subscriberCount} past player{subscriberCount !== 1 ? "s" : ""}!
+                  </span>
+                </div>
+              ) : (
+                <motion.button
+                  onClick={handleNotifyPastPlayers}
+                  disabled={notifying}
+                  whileHover={{ scale: notifying ? 1 : 1.02 }}
+                  whileTap={{ scale: notifying ? 1 : 0.98 }}
+                  className={`w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center ${
+                    notifying ? "opacity-75 cursor-not-allowed" : ""
+                  }`}
+                >
+                  {notifying ? (
+                    <>
+                      <Loader2 className="mr-2 animate-spin" size={20} />
+                      Notifying...
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="mr-2" size={20} />
+                      Notify {subscriberCount} past player{subscriberCount !== 1 ? "s" : ""}
+                    </>
+                  )}
+                </motion.button>
+              )}
+            </div>
+          )}
         </div>
         <motion.div
           initial={{ opacity: 0 }}

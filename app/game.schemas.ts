@@ -60,6 +60,18 @@ export const GameClientEventSchema = z.discriminatedUnion("type", [
     type: z.literal("REMOVE_PLAYER"),
     playerId: z.string(),
   }),
+
+  // Re-engagement: subscribe to future games from this host
+  z.object({
+    type: z.literal("SUBSCRIBE_TO_HOST"),
+  }),
+
+  // Re-engagement: host notifies past players
+  z.object({
+    type: z.literal("NOTIFY_PAST_PLAYERS"),
+    gameId: z.string(),
+    gameUrl: z.string(),
+  }),
 ]);
 
 export const GameServiceEventSchema = z.discriminatedUnion("type", [

@@ -1,6 +1,6 @@
 import { useStore } from "@nanostores/react";
 import { AnimatePresence, motion } from "framer-motion";
-import { Bell, Crown, HelpCircle, Loader2 } from "lucide-react";
+import { Bell, BellRing, Crown, HelpCircle, Loader2 } from "lucide-react";
 import { atom } from "nanostores";
 import { useEffect, useState } from "react";
 import { BridgeContext, NotificationContext } from "~/bridge/client";
@@ -449,9 +449,20 @@ const WaitingDisplay = ({ player }: { player: Player }) => {
 
 const GameFinishedDisplay = ({ player }: { player: Player }) => {
   const gameState = GameContext.useSelector((state) => state.public);
+  const send = GameContext.useSend();
+  const [subscribed, setSubscribed] = useState(false);
   // Sort players by score in descending order
   const sortedPlayers = [...gameState.players].sort((a, b) => b.score - a.score);
   const winner = sortedPlayers[0];
+
+  // Check if the current player has an ogsDeviceId (is in OGS app)
+  const currentPlayer = gameState.players.find((p) => p.id === player.id);
+  const hasOgsDevice = !!currentPlayer?.ogsDeviceId;
+
+  const handleSubscribe = () => {
+    send({ type: "SUBSCRIBE_TO_HOST" });
+    setSubscribed(true);
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 relative">
@@ -492,6 +503,35 @@ const GameFinishedDisplay = ({ player }: { player: Player }) => {
             with {winner.score} points
           </p>
         </div>
+
+        {/* Notify me button for OGS app players */}
+        {hasOgsDevice && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="mb-8"
+          >
+            {subscribed ? (
+              <div className="flex items-center justify-center gap-2 text-green-400 bg-green-500/10 border border-green-500/30 rounded-xl py-3 px-4">
+                <BellRing className="w-5 h-5" />
+                <span className="font-medium">
+                  You'll be notified for future games!
+                </span>
+              </div>
+            ) : (
+              <motion.button
+                onClick={handleSubscribe}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white font-bold py-3 px-4 rounded-xl transition duration-300 flex items-center justify-center gap-2"
+              >
+                <Bell className="w-5 h-5" />
+                Notify me for future games
+              </motion.button>
+            )}
+          </motion.div>
+        )}
 
         {/* Final Scores Section */}
         <div className="space-y-4">

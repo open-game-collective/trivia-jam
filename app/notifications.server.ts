@@ -117,6 +117,34 @@ export async function notifyGameStarted(
 /**
  * Notify all players that the game has finished with results.
  */
+/**
+ * Notify past players (subscribers) that the host is starting a new game.
+ */
+export async function notifyNewGame(
+  ogsDeviceIds: string[],
+  hostName: string,
+  gameUrl: string,
+  apiKey: string
+): Promise<void> {
+  const players = ogsDeviceIds.map((id) => ({
+    id,
+    name: "",
+    ogsDeviceId: id,
+  }));
+  await notifyPlayers(
+    players,
+    {
+      title: `${hostName} is starting a new game!`,
+      body: "Tap to join the trivia game.",
+      data: {
+        url: gameUrl,
+        type: "new_game",
+      },
+    },
+    apiKey
+  );
+}
+
 export async function notifyGameFinished(
   players: PlayerWithDevice[],
   gameId: string,
