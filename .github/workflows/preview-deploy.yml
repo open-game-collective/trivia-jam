@@ -1,0 +1,109 @@
+name: Preview Deploy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [closed]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  WORKERS_SUBDOMAIN: jonathanrmumm
+
+jobs:
+  deploy:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm build
+
+      - name: Set preview worker name
+        run: |
+          PR_NUM=${{ github.event.pull_request.number }}
+          WORKER_NAME="trivia-jam-pr-${PR_NUM}"
+          PREVIEW_HOST="${WORKER_NAME}.${WORKERS_SUBDOMAIN}.workers.dev"
+          echo "WORKER_NAME=${WORKER_NAME}" >> "$GITHUB_ENV"
+          echo "PREVIEW_HOST=${PREVIEW_HOST}" >> "$GITHUB_ENV"
+
+      - name: Patch wrangler config for preview
+        run: |
+          node -e "
+            const fs = require('fs');
+            const config = JSON.parse(fs.readFileSync('.output/server/wrangler.json', 'utf8'));
+            config.name = process.env.WORKER_NAME;
+            config.vars = config.vars || {};
+            config.vars.ACTOR_KIT_HOST = process.env.PREVIEW_HOST;
+            delete config.kv_namespaces;
+            fs.writeFileSync('.output/server/wrangler.json', JSON.stringify(config, null, 2));
+          "
+
+      - name: Deploy preview
+        id: deploy
+        run: |
+          DEPLOY_OUTPUT=$(npx wrangler deploy -c .output/server/wrangler.json 2>&1)
+          echo "$DEPLOY_OUTPUT"
+          PREVIEW_URL=$(echo "$DEPLOY_OUTPUT" | grep -oE 'https://[^ ]+\.workers\.dev' | head -1)
+          if [ -z "$PREVIEW_URL" ]; then
+            PREVIEW_URL="https://${PREVIEW_HOST}"
+          fi
+          echo "url=${PREVIEW_URL}" >> "$GITHUB_OUTPUT"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+
+      - name: Set preview secrets
+        run: |
+          echo "$SECRETS_JSON" | npx wrangler secret bulk --name "$WORKER_NAME"
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          SECRETS_JSON: |
+            {
+              "ACTOR_KIT_SECRET": "${{ secrets.ACTOR_KIT_SECRET }}",
+              "SESSION_JWT_SECRET": "${{ secrets.SESSION_JWT_SECRET }}",
+              "GEMINI_API_KEY": "${{ secrets.GEMINI_API_KEY }}"
+            }
+
+      - name: Comment PR with preview URL
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview-deploy
+          message: |
+            ### Preview Deployment
+
+            | | |
+            |---|---|
+            | **URL** | ${{ steps.deploy.outputs.url }} |
+            | **Worker** | `${{ env.WORKER_NAME }}` |
+            | **Status** | Deployed |
+            | **Commit** | `${{ github.event.pull_request.head.sha }}` |
+
+  cleanup:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete preview worker
+        run: |
+          WORKER_NAME="trivia-jam-pr-${{ github.event.pull_request.number }}"
+          npx wrangler delete --name "$WORKER_NAME" --force 2>&1 || true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

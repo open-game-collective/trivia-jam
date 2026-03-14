@@ -2,6 +2,7 @@ node_modules/
 # Build
 dist
 public/dist
+.output/
 # Logs
 *.log
 npm-debug.log*
@@ -12,3 +13,9 @@ npm-debug.log*
 .wrangler/
 *storybook.log
 storybook-static/
+# TanStack Router
+src/routeTree.gen.ts
+# Playwright
+test-results/
+playwright-report/
+playwright/.cache/

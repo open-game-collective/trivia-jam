@@ -1,0 +1,11 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "34S957HD77.org.opengame.app",
+        "paths": ["/games/*"]
+      }
+    ]
+  }
+}
